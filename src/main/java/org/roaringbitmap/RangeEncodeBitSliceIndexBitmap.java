@@ -18,8 +18,7 @@
 
 package org.roaringbitmap;
 
-import org.assertj.core.util.VisibleForTesting;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -512,12 +511,10 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         return state.getLongCardinality();
     }
 
-    @VisibleForTesting
     protected long getEmptySliceMask() {
         return emptySliceMask;
     }
 
-    @VisibleForTesting
     protected RoaringBitmap[] getSlices() {
         RoaringBitmap[] result = new RoaringBitmap[bitCount()];
         for (int i = 0; i < bitCount(); i++) {
