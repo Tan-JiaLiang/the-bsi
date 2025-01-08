@@ -31,6 +31,10 @@ public interface BitSliceIndexBitmap {
 
     boolean exists(int rid);
 
+    int bitCount();
+
+    void merge(BitSliceIndexBitmap other);
+
     ByteBuffer serialize();
 
     RoaringBitmap eq(long predicate, @Nullable RoaringBitmap foundSet);

@@ -62,7 +62,7 @@ public class RangeEncodeBitSliceIndexBitmapTest {
             max = Math.max(max == 0 ? next : max, next);
             pairs.add(new Pair(i, next));
         }
-//                RangeEncodeBitSliceIndexBitmap bsi = new RangeEncodeBitSliceIndexBitmap();
+        //                RangeEncodeBitSliceIndexBitmap bsi = new RangeEncodeBitSliceIndexBitmap();
         RangeEncodeBitSliceIndexBitmap bsi = new RangeEncodeBitSliceIndexBitmap(min, max);
         for (Pair pair : pairs) {
             if (pair.value == null) {
@@ -184,7 +184,8 @@ public class RangeEncodeBitSliceIndexBitmapTest {
                                     .collect(
                                             RoaringBitmap::new,
                                             RoaringBitmap::add,
-                                            (x1, x2) -> x1.or(x2)).getCardinality());
+                                            (x1, x2) -> x1.or(x2))
+                                    .getCardinality());
         }
 
         // test predicate with found set

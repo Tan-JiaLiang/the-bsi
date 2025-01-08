@@ -28,6 +28,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class RangeEncodeBitSliceIndexBitmapMinorTest {
 
     @Test
+    public void testMerge() {
+        RangeEncodeBitSliceIndexBitmap range1 = new RangeEncodeBitSliceIndexBitmap();
+        range1.set(0, 1);
+        range1.set(2, 10);
+        range1.set(3, 7);
+
+        RangeEncodeBitSliceIndexBitmap range2 = new RangeEncodeBitSliceIndexBitmap();
+        range2.set(1, 3);
+        range2.set(4, 9);
+        range2.set(5, 9);
+
+        range1.merge(range2);
+
+        RoaringBitmap ebm = range1.isNotNull();
+        assertThat(ebm).isEqualTo(RoaringBitmap.bitmapOf(0, 1, 2, 3, 4, 5));
+        assertThat(range1.get(0)).isEqualTo(1);
+        assertThat(range1.get(1)).isEqualTo(3);
+        assertThat(range1.get(2)).isEqualTo(10);
+        assertThat(range1.get(3)).isEqualTo(7);
+        assertThat(range1.get(4)).isEqualTo(9);
+        assertThat(range1.get(5)).isEqualTo(9);
+    }
+
+    @Test
     public void testLTE() throws IOException {
         RangeEncodeBitSliceIndexBitmap range = new RangeEncodeBitSliceIndexBitmap();
         range.set(0, 1);

@@ -54,7 +54,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
                 max == Long.MIN_VALUE
                         ? new RoaringBitmap[] {}
                         : new RoaringBitmap[64 - Long.numberOfLeadingZeros(max)];
-        for (int i = 0; i < slices.length; i++) {
+        for (int i = 0; i < bitCount(); i++) {
             slices[i] = new RoaringBitmap();
         }
         this.mask = generateMask(max);
@@ -106,7 +106,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
             // grow the slices
             int capacity = Long.toBinaryString(max).length();
-            int old = slices.length;
+            int old = bitCount();
             if (old < capacity) {
                 RoaringBitmap[] newSlices = new RoaringBitmap[capacity];
                 for (int i = 0; i < capacity; i++) {
@@ -148,7 +148,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
             return null;
         }
         long value = 0;
-        for (int i = 0; i < slices.length; i++) {
+        for (int i = 0; i < bitCount(); i++) {
             if (!getSlice(i).contains(rid)) {
                 value |= (1L << i);
             }
@@ -159,6 +159,49 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
     @Override
     public boolean exists(int rid) {
         return getExistenceBitmap().contains(rid);
+    }
+
+    @Override
+    public int bitCount() {
+        return slices.length;
+    }
+
+    @Override
+    public void merge(BitSliceIndexBitmap other) {
+        if (other == null) {
+            return;
+        }
+
+        if (!(other instanceof RangeEncodeBitSliceIndexBitmap)) {
+            throw new UnsupportedOperationException(
+                    "merge " + other.getClass().getName() + " is not support yet.");
+        }
+
+        RangeEncodeBitSliceIndexBitmap bsi = (RangeEncodeBitSliceIndexBitmap) other;
+        RoaringBitmap otherEbm = bsi.getExistenceBitmap();
+        if (otherEbm.isEmpty()) {
+            return;
+        }
+
+        RoaringBitmap currentEbm = getExistenceBitmap();
+        boolean intersects = RoaringBitmap.intersects(currentEbm, otherEbm);
+        if (intersects) {
+            throw new UnsupportedOperationException("merge is not support yet in intersects case.");
+        } else {
+            int length = Integer.max(bitCount(), bsi.bitCount());
+            RoaringBitmap[] newSlices = new RoaringBitmap[length];
+            for (int i = 0; i < length; i++) {
+                RoaringBitmap left = i < bitCount() ? getSlice(i) : new RoaringBitmap();
+                RoaringBitmap right = i < bsi.bitCount() ? bsi.getSlice(i) : new RoaringBitmap();
+                newSlices[i] = RoaringBitmap.or(left, right);
+            }
+            slices = newSlices;
+            ebm = RoaringBitmap.or(currentEbm, otherEbm);
+            max = Long.max(max, bsi.max);
+            min = Long.min(min, bsi.min);
+            emptySliceMask = emptySliceMask | bsi.emptySliceMask;
+            mask = generateMask(max);
+        }
     }
 
     @Override
@@ -174,14 +217,14 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         header += Long.BYTES;
         header += Long.BYTES;
         header += Byte.BYTES;
-        header += slices.length * Integer.BYTES;
+        header += bitCount() * Integer.BYTES;
 
         int body = 0;
         ebm.runOptimize();
         body += ebm.serializedSizeInBytes();
 
-        int[] offsets = new int[slices.length];
-        for (int i = 0; i < slices.length; i++) {
+        int[] offsets = new int[bitCount()];
+        for (int i = 0; i < bitCount(); i++) {
             slices[i].runOptimize();
             body += slices[i].serializedSizeInBytes();
             if (i == 0) {
@@ -198,7 +241,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         buffer.putLong(min);
         buffer.putLong(max);
         buffer.putLong(emptySliceMask);
-        buffer.put((byte) slices.length);
+        buffer.put((byte) bitCount());
         for (int offset : offsets) {
             buffer.putInt(offset);
         }
@@ -228,7 +271,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
             return new RoaringBitmap();
         }
 
-        for (int i = slices.length - 1; i >= 0; i--) {
+        for (int i = bitCount() - 1; i >= 0; i--) {
             long bit = (predicate >> i) & 1;
             if (bit == 1) {
                 state = RoaringBitmap.andNot(state, getSlice(i));
@@ -258,7 +301,8 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         }
 
         // the state is always start from the full bitmap
-        RoaringBitmap state = RoaringBitmap.bitmapOfRange(fixedFoundSet.first(), fixedFoundSet.last() + 1);
+        RoaringBitmap state =
+                RoaringBitmap.bitmapOfRange(fixedFoundSet.first(), fixedFoundSet.last() + 1);
 
         // if there is a run of k set bits starting from 0, all k operations can be eliminated.
         int start = Long.numberOfTrailingZeros(~predicate & mask);
@@ -270,7 +314,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
             state = new RoaringBitmap();
         }
 
-        for (int i = start; i < slices.length; i++) {
+        for (int i = start; i < bitCount(); i++) {
             long bit = (predicate >> i) & 1;
             if (bit == 1) {
                 state.or(getSlice(i));
@@ -330,7 +374,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
             return new RoaringBitmap();
         }
 
-        for (int i = slices.length - 1; i >= 0; i--) {
+        for (int i = bitCount() - 1; i >= 0; i--) {
             RoaringBitmap x = RoaringBitmap.or(g, RoaringBitmap.andNot(e, getSlice(i)));
             long n = x.getCardinality();
             if (n > k) {
@@ -377,7 +421,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
             return new RoaringBitmap();
         }
 
-        for (int i = slices.length - 1; i >= 0; i--) {
+        for (int i = bitCount() - 1; i >= 0; i--) {
             RoaringBitmap x = RoaringBitmap.or(g, RoaringBitmap.and(e, getSlice(i)));
             long n = x.getLongCardinality();
             if (n > k) {
@@ -444,7 +488,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
                         ? getExistenceBitmap()
                         : RoaringBitmap.and(getExistenceBitmap(), foundSet);
 
-        return IntStream.range(0, slices.length)
+        return IntStream.range(0, bitCount())
                 .mapToLong(
                         x -> (1L << x) * RoaringBitmap.andNot(state, getSlice(x)).getCardinality())
                 .sum();
@@ -475,8 +519,8 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
     @VisibleForTesting
     protected RoaringBitmap[] getSlices() {
-        RoaringBitmap[] result = new RoaringBitmap[slices.length];
-        for (int i = 0; i < slices.length; i++) {
+        RoaringBitmap[] result = new RoaringBitmap[bitCount()];
+        for (int i = 0; i < bitCount(); i++) {
             result[i] = getSlice(i);
         }
         return result;
