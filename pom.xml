@@ -29,6 +29,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.roaringbitmap</groupId>
+            <artifactId>bsi</artifactId>
+            <version>${roaringbitmap.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <version>${findbugs.version}</version>

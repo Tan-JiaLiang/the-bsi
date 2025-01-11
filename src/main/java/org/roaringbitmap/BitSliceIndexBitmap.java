@@ -24,12 +24,12 @@ import java.nio.ByteBuffer;
 
 public interface BitSliceIndexBitmap {
 
-    void set(int rid, long value);
+    void set(int key, long value);
 
     @Nullable
-    Long get(int rid);
+    Long get(int key);
 
-    boolean exists(int rid);
+    boolean exists(int key);
 
     int bitCount();
 

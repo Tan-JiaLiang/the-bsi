@@ -90,7 +90,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
     }
 
     @Override
-    public void set(int rid, long value) {
+    public void set(int key, long value) {
         if (value < 0) {
             throw new UnsupportedOperationException("value can not be negative");
         }
@@ -135,20 +135,20 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
         // only bit=1 need to set
         while (bits != 0) {
-            getSlice(Long.numberOfTrailingZeros(bits)).add(rid);
+            getSlice(Long.numberOfTrailingZeros(bits)).add(key);
             bits &= (bits - 1);
         }
-        getExistenceBitmap().add(rid);
+        getExistenceBitmap().add(key);
     }
 
     @Override
-    public Long get(int rid) {
-        if (!exists(rid)) {
+    public Long get(int key) {
+        if (!exists(key)) {
             return null;
         }
         long value = 0;
         for (int i = 0; i < bitCount(); i++) {
-            if (!getSlice(i).contains(rid)) {
+            if (!getSlice(i).contains(key)) {
                 value |= (1L << i);
             }
         }
@@ -156,8 +156,8 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
     }
 
     @Override
-    public boolean exists(int rid) {
-        return getExistenceBitmap().contains(rid);
+    public boolean exists(int key) {
+        return getExistenceBitmap().contains(key);
     }
 
     @Override
