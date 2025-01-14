@@ -119,4 +119,6 @@ public interface BitSliceIndexBitmap {
     default Long count() {
         return count(null);
     }
+
+    void subtract(long input);
 }

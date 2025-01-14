@@ -51,7 +51,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         this.ebm = new RoaringBitmap();
         this.slices =
                 max == Long.MIN_VALUE
-                        ? new RoaringBitmap[] {}
+                        ? new RoaringBitmap[]{}
                         : new RoaringBitmap[64 - Long.numberOfLeadingZeros(max)];
         for (int i = 0; i < bitCount(); i++) {
             slices[i] = new RoaringBitmap();
@@ -128,7 +128,8 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         }
 
         // range encode
-        long bits = ~value & mask;
+        // long bits = ~value & mask;
+        long bits = value & mask;
 
         // mark the empty slice
         emptySliceMask |= bits;
@@ -148,7 +149,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         }
         long value = 0;
         for (int i = 0; i < bitCount(); i++) {
-            if (!getSlice(i).contains(key)) {
+            if (getSlice(i).contains(key)) {
                 value |= (1L << i);
             }
         }
@@ -509,6 +510,48 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
                         ? getExistenceBitmap()
                         : RoaringBitmap.and(getExistenceBitmap(), foundSet);
         return state.getLongCardinality();
+    }
+
+    @Override
+    public void subtract(long input) {
+        if (input > min && input < max) {
+            throw new UnsupportedOperationException("value can not greater than min");
+        }
+
+        // long bits = ~input & mask;
+        long bits = input & mask;
+
+        RoaringBitmap borrow = new RoaringBitmap();
+        for (int i = 0; i < bitCount(); i++) {
+            long bit = (bits >> i) & 1;
+            RoaringBitmap slice = getSlice(i);
+            RoaringBitmap ebm = getExistenceBitmap();
+            // after borrowed by the last bit slice
+            RoaringBitmap leftSlice = RoaringBitmap.andNot(slice, borrow);
+            // elimination the state
+            RoaringBitmap eliminated = RoaringBitmap.andNot(borrow, slice);
+            if (bit == 1) {
+                RoaringBitmap current = RoaringBitmap.andNot(ebm, leftSlice);
+                borrow = RoaringBitmap.or(eliminated, current);
+                slices[i] = RoaringBitmap.andNot(current, eliminated);
+            } else {
+                borrow = eliminated;
+                slices[i] = RoaringBitmap.or(leftSlice, borrow);
+            }
+        }
+
+        // empty slice
+        emptySliceMask = 0;
+        for (int i = 0; i < bitCount(); i++) {
+            RoaringBitmap slice = getSlice(i);
+            if (!slice.isEmpty()) {
+                emptySliceMask |= (1L << i);
+            }
+        }
+
+        min = min - input;
+        max = max - input;
+        mask = generateMask(max);
     }
 
     protected long getEmptySliceMask() {
