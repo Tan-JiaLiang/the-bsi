@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class RangeEncodeBitSliceIndexBitmapTest {
+public class BitSliceIndexBitmapTest {
 
     public static final int NUM_OF_ROWS = 1000000;
     public static final int VALUE_BOUND = 100000;
@@ -62,8 +62,8 @@ public class RangeEncodeBitSliceIndexBitmapTest {
             max = Math.max(max == 0 ? next : max, next);
             pairs.add(new Pair(i, next));
         }
-        RangeEncodeBitSliceIndexBitmap bsi = new RangeEncodeBitSliceIndexBitmap();
-        //        RangeEncodeBitSliceIndexBitmap bsi = new RangeEncodeBitSliceIndexBitmap(min, max);
+//        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
+        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap(min, max);
         for (Pair pair : pairs) {
             if (pair.value == null) {
                 continue;
@@ -71,14 +71,14 @@ public class RangeEncodeBitSliceIndexBitmapTest {
             bsi.set(pair.index, pair.value);
         }
         ByteBuffer serialize = bsi.serialize();
-        this.bsi = new RangeEncodeBitSliceIndexBitmap(ByteBuffer.wrap(serialize.array()));
+        this.bsi = new BitSliceIndexBitmap(ByteBuffer.wrap(serialize.array()));
         this.pairs = Collections.unmodifiableList(pairs);
     }
 
     @Test
     public void testSliceMask() {
-        RoaringBitmap[] slices = ((RangeEncodeBitSliceIndexBitmap) bsi).getSlices();
-        long emptySliceMask = ((RangeEncodeBitSliceIndexBitmap) bsi).getEmptySliceMask();
+        RoaringBitmap[] slices = ((BitSliceIndexBitmap) bsi).getSlices();
+        long emptySliceMask = ((BitSliceIndexBitmap) bsi).getEmptySliceMask();
 
         for (int i = 0; i < slices.length; i++) {
             long emptySliceBit = (emptySliceMask >> i) & 1;

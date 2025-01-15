@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
 
-public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
+public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
 
     public static final byte VERSION_1 = 1;
     public static final byte CURRENT_VERSION = VERSION_1;
@@ -175,7 +175,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
     }
 
     @Override
-    public void merge(BitSliceIndexBitmap other) {
+    public void merge(BitSliceIndex other) {
         if (other == null) {
             return;
         }
@@ -314,7 +314,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
                 RoaringBitmap.bitmapOfRange(fixedFoundSet.first(), fixedFoundSet.last() + 1);
 
         // if there is a run of k set bits starting from 0, all k operations can be eliminated.
-        int start = Long.numberOfTrailingZeros(~predicate & mask);
+        int start = Long.numberOfTrailingZeros(~predicate);
 
         // using full slice mask to do some skip
         if (fullSliceMask != 0) {
@@ -323,11 +323,8 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
             // if there is a full slice at position k and the bit k is present in the threshold x
             // skip k operations, and the state is an full bitmap.
-            start =
-                    Math.max(
-                            start,
-                            Long.SIZE
-                                    - Long.numberOfLeadingZeros(fullSliceMask & predicate & mask));
+            int skip = Long.SIZE - Long.numberOfLeadingZeros(fullSliceMask & predicate & mask);
+            start = Math.max(start, skip);
         }
 
         // using empty slice mask to do some skip
