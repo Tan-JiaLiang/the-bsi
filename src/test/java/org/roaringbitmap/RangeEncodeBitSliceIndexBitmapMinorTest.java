@@ -52,6 +52,18 @@ public class RangeEncodeBitSliceIndexBitmapMinorTest {
     }
 
     @Test
+    public void testTimeMillis() {
+        RangeEncodeBitSliceIndexBitmap range = new RangeEncodeBitSliceIndexBitmap();
+        range.set(0, 1736907560000L);
+        range.set(1, 1736907460000L);
+        range.set(5, 1736908460000L);
+        range.set(6, 1736902450000L);
+        range.set(9, 1736902410000L);
+        range.set(10, 1736903480000L);
+        assertThat(range.lte(1736903410000L)).isEqualTo(RoaringBitmap.bitmapOf(6, 9));
+    }
+
+    @Test
     public void testLTE() throws IOException {
         RangeEncodeBitSliceIndexBitmap range = new RangeEncodeBitSliceIndexBitmap();
         range.set(0, 1);

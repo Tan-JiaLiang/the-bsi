@@ -34,6 +34,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
     private long min;
     private long max;
     private long emptySliceMask;
+    private long fullSliceMask;
     private int[] offsets;
 
     private ByteBuffer body;
@@ -51,13 +52,14 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         this.ebm = new RoaringBitmap();
         this.slices =
                 max == Long.MIN_VALUE
-                        ? new RoaringBitmap[] {}
+                        ? new RoaringBitmap[]{}
                         : new RoaringBitmap[64 - Long.numberOfLeadingZeros(max)];
         for (int i = 0; i < bitCount(); i++) {
             slices[i] = new RoaringBitmap();
         }
         this.mask = generateMask(max);
         this.emptySliceMask = 0;
+        this.fullSliceMask = generateMask(max);
     }
 
     public RangeEncodeBitSliceIndexBitmap(ByteBuffer buffer) {
@@ -73,6 +75,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         min = buffer.getLong();
         max = buffer.getLong();
         emptySliceMask = buffer.getLong();
+        fullSliceMask = buffer.getLong();
 
         // read offsets
         byte length = buffer.get();
@@ -102,6 +105,9 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         if (max < 0 || max < value) {
             max = value;
             mask = generateMask(max);
+            if (ebm.isEmpty()) {
+                fullSliceMask = generateMask(max);
+            }
 
             // grow the slices
             int capacity = Long.toBinaryString(max).length();
@@ -114,12 +120,12 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
                     } else {
                         // the mask changed, and range encoded always flip the binary
                         // so we need to fill it with ebm.clone
-                        // but using bitmapOfRange instead can get more space saving
                         if (ebm.isEmpty()) {
                             newSlices[i] = new RoaringBitmap();
                         } else {
-                            newSlices[i] = RoaringBitmap.bitmapOfRange(ebm.first(), ebm.last() + 1);
+                            newSlices[i] = ebm.clone();
                             emptySliceMask |= (1L << i);
+                            fullSliceMask |= (1L << i);
                         }
                     }
                 }
@@ -132,6 +138,9 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
         // mark the empty slice
         emptySliceMask |= bits;
+
+        // mark the full slice
+        fullSliceMask &= bits;
 
         // only bit=1 need to set
         while (bits != 0) {
@@ -215,6 +224,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         header += Long.BYTES;
         header += Long.BYTES;
         header += Long.BYTES;
+        header += Long.BYTES;
         header += Byte.BYTES;
         header += bitCount() * Integer.BYTES;
 
@@ -240,6 +250,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         buffer.putLong(min);
         buffer.putLong(max);
         buffer.putLong(emptySliceMask);
+        buffer.putLong(fullSliceMask);
         buffer.put((byte) bitCount());
         for (int offset : offsets) {
             buffer.putInt(offset);
@@ -306,11 +317,25 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         // if there is a run of k set bits starting from 0, all k operations can be eliminated.
         int start = Long.numberOfTrailingZeros(~predicate & mask);
 
-        // if there is an empty slice at position k and the bit k is absent from the threshold x
-        // skip k operations, and the state is an empty slice.
+        // using full slice mask to do some skip
+        if (fullSliceMask != 0) {
+            // if there are successive full slices from 0 to k, all k operations can be eliminated.
+            start = Math.max(start, Long.numberOfTrailingZeros(~fullSliceMask & mask));
+
+            // if there is a full slice at position k and the bit k is present in the threshold x
+            // skip k operations, and the state is an full bitmap.
+            start = Math.max(start, Long.SIZE - Long.numberOfLeadingZeros(fullSliceMask & predicate & mask));
+        }
+
+        // using empty slice mask to do some skip
         if (emptySliceMask != mask) {
-            start = Long.SIZE - Long.numberOfLeadingZeros(~(emptySliceMask | predicate) & mask);
-            state = new RoaringBitmap();
+            // if there is an empty slice at position k and the bit k is absent from the threshold x
+            // skip k operations, and the state is an empty bitmap.
+            int skip = Long.SIZE - Long.numberOfLeadingZeros(~(emptySliceMask | predicate) & mask);
+            if (skip > start) {
+                start = skip;
+                state = new RoaringBitmap();
+            }
         }
 
         for (int i = start; i < bitCount(); i++) {
