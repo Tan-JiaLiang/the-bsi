@@ -52,7 +52,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         this.ebm = new RoaringBitmap();
         this.slices =
                 max == Long.MIN_VALUE
-                        ? new RoaringBitmap[]{}
+                        ? new RoaringBitmap[] {}
                         : new RoaringBitmap[64 - Long.numberOfLeadingZeros(max)];
         for (int i = 0; i < bitCount(); i++) {
             slices[i] = new RoaringBitmap();
@@ -324,7 +324,11 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
             // if there is a full slice at position k and the bit k is present in the threshold x
             // skip k operations, and the state is an full bitmap.
-            start = Math.max(start, Long.SIZE - Long.numberOfLeadingZeros(fullSliceMask & predicate & mask));
+            start =
+                    Math.max(
+                            start,
+                            Long.SIZE
+                                    - Long.numberOfLeadingZeros(fullSliceMask & predicate & mask));
         }
 
         // using empty slice mask to do some skip
@@ -385,8 +389,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         }
 
         if (k < 0) {
-            throw new IllegalArgumentException(
-                    "the k param can not be negative in topK, k=" + k);
+            throw new IllegalArgumentException("the k param can not be negative in topK, k=" + k);
         }
 
         RoaringBitmap g = new RoaringBitmap();

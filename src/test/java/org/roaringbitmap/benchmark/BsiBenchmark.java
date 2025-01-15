@@ -124,7 +124,7 @@ public class BsiBenchmark {
                         for (int i = 0; i < read; i++) {
                             File file = new File(BSI_PATH);
                             try (BufferedInputStream stream =
-                                         new BufferedInputStream(Files.newInputStream(file.toPath()))) {
+                                    new BufferedInputStream(Files.newInputStream(file.toPath()))) {
                                 byte[] bytes = new byte[(int) file.length()];
                                 stream.read(bytes);
                                 ByteBuffer buffer = ByteBuffer.wrap(bytes);
