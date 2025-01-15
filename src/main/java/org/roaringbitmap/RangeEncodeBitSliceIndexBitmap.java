@@ -224,7 +224,6 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
         header += Long.BYTES;
         header += Long.BYTES;
         header += Long.BYTES;
-        header += Long.BYTES;
         header += Byte.BYTES;
         header += bitCount() * Integer.BYTES;
 
