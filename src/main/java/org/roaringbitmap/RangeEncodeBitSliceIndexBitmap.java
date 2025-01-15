@@ -386,7 +386,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndexBitmap {
 
         if (k < 0) {
             throw new IllegalArgumentException(
-                    "the k param can not be negative in bottomK, k=" + k);
+                    "the k param can not be negative in topK, k=" + k);
         }
 
         RoaringBitmap g = new RoaringBitmap();
