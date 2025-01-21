@@ -62,7 +62,7 @@ public class BitSliceIndexBitmapTest {
             max = Math.max(max == 0 ? next : max, next);
             pairs.add(new Pair(i, next));
         }
-//        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
+        //        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
         BitSliceIndexBitmap bsi = new BitSliceIndexBitmap(min, max);
         for (Pair pair : pairs) {
             if (pair.value == null) {

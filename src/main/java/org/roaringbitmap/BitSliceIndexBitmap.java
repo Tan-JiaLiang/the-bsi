@@ -278,7 +278,7 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         }
 
         // the state is always start from the empty bitmap
-        RoaringBitmap state = new RoaringBitmap();
+        RoaringBitmap state = null;
 
         // if there is a run of k set bits starting from 0, [0, k] operations can be eliminated.
         int start = Long.numberOfTrailingZeros(~predicate);
@@ -296,14 +296,25 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         }
 
         for (int i = start; i < bitCount(); i++) {
+            if (state == null) {
+                state = getSlice(i).clone();
+                continue;
+            }
+
             long bit = (predicate >> i) & 1;
             if (bit == 1) {
-                state = RoaringBitmap.and(state, getSlice(i));
+                state.and(getSlice(i));
             } else {
-                state = RoaringBitmap.or(state, getSlice(i));
+                state.or(getSlice(i));
             }
         }
-        return RoaringBitmap.and(state, fixedFoundSet);
+
+        if (state == null) {
+            return new RoaringBitmap();
+        }
+
+        state.and(fixedFoundSet);
+        return state;
     }
 
     @Override

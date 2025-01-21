@@ -40,9 +40,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class BsiBenchmark {
 
-    private static final int ROW_COUNT = 3000000;
+    private static final int ROW_COUNT = 1000000;
     private static final int MIN = 0;
-    private static final int MAX = 300000;
+    private static final int MAX = 100000;
 
     private static final String BSI_PATH = "src/test/resources/data/bsi.txt";
     private static final String RE_BSI_PATH = "src/test/resources/data/re-bsi.txt";
@@ -111,7 +111,7 @@ public class BsiBenchmark {
 
     @Test
     public void testQuery() {
-        int read = 10;
+        int read = 50;
         int length = 30;
         Random random = new Random();
         int[] values = new int[length + 1];
@@ -120,17 +120,17 @@ public class BsiBenchmark {
         }
         values[length] = MAX + 1;
 
-        for (int value : values) {
-            Benchmark benchmark =
-                    new Benchmark("benchmark", read * length)
-                            .setNumWarmupIters(1)
-                            .setOutputPerIteration(false);
+        Benchmark benchmark =
+                new Benchmark("benchmark", read * length)
+                        .setNumWarmupIters(1)
+                        .setOutputPerIteration(false);
 
-            benchmark.addCase(
-                    "roaring-bsi-" + value,
-                    3,
-                    () -> {
-                        for (int i = 0; i < read; i++) {
+        benchmark.addCase(
+                "roaring-bsi",
+                3,
+                () -> {
+                    for (int i = 0; i < read; i++) {
+                        for (int value : values) {
                             File file = new File(ROARING_BSI_PATH);
                             try (BufferedInputStream stream =
                                     new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -144,13 +144,15 @@ public class BsiBenchmark {
                                 throw new RuntimeException(e);
                             }
                         }
-                    });
+                    }
+                });
 
-            benchmark.addCase(
-                    "roaring-re-bsi-" + value,
-                    3,
-                    () -> {
-                        for (int i = 0; i < read; i++) {
+        benchmark.addCase(
+                "roaring-re-bsi",
+                3,
+                () -> {
+                    for (int i = 0; i < read; i++) {
+                        for (int value : values) {
                             File file = new File(ROARING_RE_BSI_PATH);
                             try (BufferedInputStream stream =
                                     new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -162,13 +164,15 @@ public class BsiBenchmark {
                                 throw new RuntimeException(e);
                             }
                         }
-                    });
+                    }
+                });
 
-            benchmark.addCase(
-                    "bsi-" + value,
-                    3,
-                    () -> {
-                        for (int i = 0; i < read; i++) {
+        benchmark.addCase(
+                "bsi",
+                3,
+                () -> {
+                    for (int i = 0; i < read; i++) {
+                        for (int value : values) {
                             File file = new File(BSI_PATH);
                             try (BufferedInputStream stream =
                                     new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -181,13 +185,15 @@ public class BsiBenchmark {
                                 throw new RuntimeException(e);
                             }
                         }
-                    });
+                    }
+                });
 
-            benchmark.addCase(
-                    "re-bsi-" + value,
-                    3,
-                    () -> {
-                        for (int i = 0; i < read; i++) {
+        benchmark.addCase(
+                "re-bsi",
+                3,
+                () -> {
+                    for (int i = 0; i < read; i++) {
+                        for (int value : values) {
                             File file = new File(RE_BSI_PATH);
                             try (BufferedInputStream stream =
                                     new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -200,9 +206,9 @@ public class BsiBenchmark {
                                 throw new RuntimeException(e);
                             }
                         }
-                    });
+                    }
+                });
 
-            benchmark.run();
-        }
+        benchmark.run();
     }
 }

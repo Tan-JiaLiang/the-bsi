@@ -334,11 +334,16 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
             int skip = Long.SIZE - Long.numberOfLeadingZeros(~(emptySliceMask | predicate) & mask);
             if (skip > start) {
                 start = skip;
-                state = new RoaringBitmap();
+                state = null;
             }
         }
 
         for (int i = start; i < bitCount(); i++) {
+            if (state == null) {
+                state = getSlice(i).clone();
+                continue;
+            }
+
             long bit = (predicate >> i) & 1;
             if (bit == 1) {
                 state.or(getSlice(i));
@@ -346,7 +351,13 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
                 state.and(getSlice(i));
             }
         }
-        return RoaringBitmap.and(state, fixedFoundSet);
+
+        if (state == null) {
+            return new RoaringBitmap();
+        }
+
+        state.and(fixedFoundSet);
+        return state;
     }
 
     @Override
