@@ -338,8 +338,8 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
                 foundSet == null
                         ? getExistenceBitmap()
                         : RoaringBitmap.and(getExistenceBitmap(), foundSet);
-        if (e.isEmpty()) {
-            return new RoaringBitmap();
+        if (e.getCardinality() <= k) {
+            return e;
         }
 
         for (int i = bitCount() - 1; i >= 0; i--) {
@@ -384,8 +384,8 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
                 foundSet == null
                         ? getExistenceBitmap()
                         : RoaringBitmap.and(getExistenceBitmap(), foundSet);
-        if (e.isEmpty()) {
-            return new RoaringBitmap();
+        if (e.getCardinality() <= k) {
+            return e;
         }
 
         for (int i = bitCount() - 1; i >= 0; i--) {
