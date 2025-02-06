@@ -265,17 +265,12 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
     @Override
     public RoaringBitmap eq(long predicate, @Nullable RoaringBitmap foundSet) {
         if (min == max && min == predicate) {
-            return foundSet == null
-                    ? getExistenceBitmap()
-                    : RoaringBitmap.and(getExistenceBitmap(), foundSet);
+            return isNotNull(foundSet);
         } else if (predicate < min || predicate > max) {
             return new RoaringBitmap();
         }
 
-        RoaringBitmap state =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(foundSet, getExistenceBitmap());
+        RoaringBitmap state = isNotNull(foundSet);
         if (state.isEmpty()) {
             return new RoaringBitmap();
         }
@@ -294,17 +289,12 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
     @Override
     public RoaringBitmap lte(long predicate, @Nullable RoaringBitmap foundSet) {
         if (predicate >= max) {
-            return foundSet == null
-                    ? getExistenceBitmap()
-                    : RoaringBitmap.and(getExistenceBitmap(), foundSet);
+            return isNotNull(foundSet);
         } else if (predicate < min) {
             return new RoaringBitmap();
         }
 
-        RoaringBitmap fixedFoundSet =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(foundSet, getExistenceBitmap());
+        RoaringBitmap fixedFoundSet = isNotNull(foundSet);
         if (fixedFoundSet.isEmpty()) {
             return new RoaringBitmap();
         }
@@ -363,17 +353,12 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
     @Override
     public RoaringBitmap gt(long predicate, @Nullable RoaringBitmap foundSet) {
         if (predicate < min) {
-            return foundSet == null
-                    ? getExistenceBitmap()
-                    : RoaringBitmap.and(getExistenceBitmap(), foundSet);
+            return isNotNull(foundSet);
         } else if (predicate >= max) {
             return new RoaringBitmap();
         }
 
-        RoaringBitmap state =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(getExistenceBitmap(), foundSet);
+        RoaringBitmap state = isNotNull(foundSet);
         if (state.isEmpty()) {
             return new RoaringBitmap();
         }
@@ -386,7 +371,9 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
 
     @Override
     public RoaringBitmap isNotNull(@Nullable RoaringBitmap foundSet) {
-        return getExistenceBitmap();
+        return foundSet == null
+                ? getExistenceBitmap()
+                : RoaringBitmap.and(getExistenceBitmap(), foundSet);
     }
 
     @Override
@@ -400,10 +387,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
         }
 
         RoaringBitmap g = new RoaringBitmap();
-        RoaringBitmap e =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(getExistenceBitmap(), foundSet);
+        RoaringBitmap e = isNotNull(foundSet);
         if (e.getCardinality() <= k) {
             return e;
         }
@@ -447,10 +431,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
         }
 
         RoaringBitmap g = new RoaringBitmap();
-        RoaringBitmap e =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(getExistenceBitmap(), foundSet);
+        RoaringBitmap e = isNotNull(foundSet);
         if (e.getCardinality() <= k) {
             return e;
         }
@@ -517,11 +498,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
             return null;
         }
 
-        RoaringBitmap state =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(getExistenceBitmap(), foundSet);
-
+        RoaringBitmap state = isNotNull(foundSet);
         return IntStream.range(0, bitCount())
                 .mapToLong(
                         x -> (1L << x) * RoaringBitmap.andNot(state, getSlice(x)).getCardinality())
@@ -529,7 +506,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
     }
 
     @Override
-    public Long count(@Nullable RoaringBitmap foundSet) {
+    public long count(@Nullable RoaringBitmap foundSet) {
         if (foundSet != null && foundSet.isEmpty()) {
             return 0L;
         }
@@ -539,11 +516,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
             return 0L;
         }
 
-        RoaringBitmap state =
-                foundSet == null
-                        ? getExistenceBitmap()
-                        : RoaringBitmap.and(getExistenceBitmap(), foundSet);
-        return state.getLongCardinality();
+        return isNotNull(foundSet).getLongCardinality();
     }
 
     protected long getEmptySliceMask() {
