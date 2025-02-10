@@ -22,7 +22,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.stream.IntStream;
 
 public class BitSliceIndexBitmap implements BitSliceIndex {
@@ -176,101 +175,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         ebm = RoaringBitmap.or(currentEbm, otherEbm);
         max = Long.max(max, bsi.max);
         min = Long.min(min, bsi.min);
-    }
-
-    public void plus(long value, @Nullable RoaringBitmap foundSet) {
-        RoaringBitmap mergedFoundSet = isNotNull(foundSet);
-        if (mergedFoundSet.isEmpty()) {
-            return;
-        }
-
-        // should not be empty
-        long min = min(mergedFoundSet);
-        long max = max(mergedFoundSet);
-
-        RoaringBitmap carrier = new RoaringBitmap();
-        int length = Math.max(Long.toBinaryString(value).length(), slices.length);
-        for (int i = 0; i < length; i++) {
-            long bit = (value >> i) & 1;
-            if (i > slices.length - 1) {
-                slices = Arrays.copyOf(slices, slices.length + 1);
-                slices[i] = new RoaringBitmap();
-            }
-            RoaringBitmap matchedSlice = RoaringBitmap.and(slices[i], mergedFoundSet);
-            // carry the slice by the last carrier
-            RoaringBitmap carriedSlice = RoaringBitmap.xor(matchedSlice, carrier);
-            carrier = RoaringBitmap.and(matchedSlice, carrier);
-            if (bit == 1) {
-                // carry the slice
-                RoaringBitmap current = RoaringBitmap.xor(carriedSlice, mergedFoundSet);
-                carrier =
-                        RoaringBitmap.or(carrier, RoaringBitmap.and(carriedSlice, mergedFoundSet));
-                slices[i] =
-                        RoaringBitmap.or(RoaringBitmap.andNot(slices[i], mergedFoundSet), current);
-            } else {
-                slices[i] =
-                        RoaringBitmap.or(
-                                RoaringBitmap.andNot(slices[i], mergedFoundSet), carriedSlice);
-            }
-        }
-
-        if (!carrier.isEmpty()) {
-            slices = Arrays.copyOf(slices, slices.length + 1);
-            slices[slices.length - 1] = carrier;
-        }
-
-        this.min = Math.min(this.min, min - value);
-        this.max = Math.min(this.max, max - value);
-    }
-
-    public void minus(long value, @Nullable RoaringBitmap foundSet) {
-        if (value > min) {
-            throw new IllegalArgumentException("the value can not less than the min value");
-        }
-
-        RoaringBitmap mergedFoundSet = isNotNull(foundSet);
-        if (mergedFoundSet.isEmpty()) {
-            return;
-        }
-
-        // should not be empty
-        long min = min(mergedFoundSet);
-        long max = max(mergedFoundSet);
-
-        RoaringBitmap borrow = new RoaringBitmap();
-        for (int i = 0; i < slices.length; i++) {
-            long bit = (value >> i) & 1;
-            RoaringBitmap matchedSlice = RoaringBitmap.and(slices[i], mergedFoundSet);
-            // after borrowed by the last bit slice
-            RoaringBitmap borrowedSlice = RoaringBitmap.andNot(matchedSlice, borrow);
-            // elimination the state
-            RoaringBitmap eliminated = RoaringBitmap.andNot(borrow, matchedSlice);
-            if (bit == 1) {
-                RoaringBitmap current = RoaringBitmap.andNot(mergedFoundSet, borrowedSlice);
-                borrow = RoaringBitmap.or(eliminated, current);
-                slices[i] =
-                        RoaringBitmap.or(
-                                RoaringBitmap.andNot(slices[i], mergedFoundSet),
-                                RoaringBitmap.andNot(current, eliminated));
-            } else {
-                borrow = eliminated;
-                slices[i] =
-                        RoaringBitmap.or(
-                                RoaringBitmap.andNot(slices[i], mergedFoundSet),
-                                RoaringBitmap.or(borrowedSlice, borrow));
-            }
-        }
-
-        // find the first not empty slice start from the end
-        int end = slices.length - 1;
-        for (; end > 0; end--) {
-            if (!slices[end].isEmpty()) {
-                break;
-            }
-        }
-        slices = Arrays.copyOfRange(slices, 0, end + 1);
-        this.min = Math.min(this.min, min - value);
-        this.max = Math.min(this.max, max - value);
     }
 
     @Override
