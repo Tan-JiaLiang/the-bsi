@@ -279,4 +279,71 @@ public class ImmutableBitSliceIndexBitmapMinorTest {
         System.out.println(Long.numberOfLeadingZeros(10));
         System.out.println(Long.SIZE - Long.numberOfLeadingZeros(10));
     }
+
+    @Test
+    public void testMerge() {
+        ImmutableBitSliceIndexBitmap.Appender ap1 = new ImmutableBitSliceIndexBitmap.Appender();
+        ap1.append(15, 30);
+        ap1.append(18, 2);
+        ap1.append(25, 12);
+
+        ByteBuffer buf1 = ap1.serialize();
+        buf1.flip();
+        ImmutableBitSliceIndexBitmap bsi1 = ImmutableBitSliceIndexBitmap.map(buf1);
+
+        ImmutableBitSliceIndexBitmap.Appender ap2 = new ImmutableBitSliceIndexBitmap.Appender();
+        ap2.append(0, 1);
+        ap2.append(1, 3);
+        ap2.append(2, 0);
+        ap2.append(10, 8);
+
+        ByteBuffer buf2 = ap2.serialize();
+        buf2.flip();
+        ImmutableBitSliceIndexBitmap bsi2 = ImmutableBitSliceIndexBitmap.map(buf2);
+
+        bsi1.merge(bsi2);
+
+        assertThat(bsi1.get(15)).isEqualTo(30);
+        assertThat(bsi1.get(18)).isEqualTo(2);
+        assertThat(bsi1.get(25)).isEqualTo(12);
+        assertThat(bsi1.get(0)).isEqualTo(1);
+        assertThat(bsi1.get(1)).isEqualTo(3);
+        assertThat(bsi1.get(2)).isEqualTo(0);
+        assertThat(bsi1.get(10)).isEqualTo(8);
+    }
+
+    @Test
+    public void testMerge2() {
+        ImmutableBitSliceIndexBitmap.Appender ap1 = new ImmutableBitSliceIndexBitmap.Appender();
+        ap1.append(0, 1);
+        ap1.append(1, 15);
+        ap1.append(10, 5);
+        ap1.append(15, 30);
+        ap1.append(18, 2);
+        ap1.append(25, 12);
+
+        ByteBuffer buf1 = ap1.serialize();
+        buf1.flip();
+        ImmutableBitSliceIndexBitmap bsi1 = ImmutableBitSliceIndexBitmap.map(buf1);
+
+        ImmutableBitSliceIndexBitmap.Appender ap2 = new ImmutableBitSliceIndexBitmap.Appender();
+        ap2.append(0, 1);
+        ap2.append(1, 3);
+        ap2.append(2, 0);
+        ap2.append(10, 8);
+
+        ByteBuffer buf2 = ap2.serialize();
+        buf2.flip();
+        ImmutableBitSliceIndexBitmap bsi2 = ImmutableBitSliceIndexBitmap.map(buf2);
+
+        bsi2.merge(bsi1);
+
+        assertThat(bsi2.get(15)).isEqualTo(30);
+        assertThat(bsi2.get(18)).isEqualTo(2);
+        assertThat(bsi2.get(25)).isEqualTo(12);
+        assertThat(bsi2.get(0)).isEqualTo(1);
+        assertThat(bsi2.get(1)).isEqualTo(15);
+        assertThat(bsi2.get(2)).isEqualTo(0);
+        assertThat(bsi2.get(10)).isEqualTo(5);
+    }
 }

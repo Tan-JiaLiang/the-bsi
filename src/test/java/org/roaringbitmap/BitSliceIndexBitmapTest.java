@@ -76,19 +76,6 @@ public class BitSliceIndexBitmapTest {
     }
 
     @Test
-    public void testSliceMask() {
-        RoaringBitmap[] slices = ((BitSliceIndexBitmap) bsi).getSlices();
-        long emptySliceMask = ((BitSliceIndexBitmap) bsi).getEmptySliceMask();
-
-        for (int i = 0; i < slices.length; i++) {
-            long emptySliceBit = (emptySliceMask >> i) & 1;
-            if (emptySliceBit == 0) {
-                assertThat(slices[i].isEmpty()).isTrue();
-            }
-        }
-    }
-
-    @Test
     public void testEQ() {
         // test predicate in the value bound
         for (int i = 0; i < 10; i++) {

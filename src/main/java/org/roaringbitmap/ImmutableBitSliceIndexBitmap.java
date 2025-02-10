@@ -81,7 +81,78 @@ public class ImmutableBitSliceIndexBitmap implements BitSliceIndex {
 
     @Override
     public void merge(BitSliceIndex other) {
-        throw new UnsupportedOperationException("current bsi is immutable.");
+        if (other == null) {
+            return;
+        }
+
+        // other bsi is not support yet.
+        if (!(other instanceof ImmutableBitSliceIndexBitmap)) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "%s bsi is not support to merge with the immutable yet.",
+                            other.getClass().getName()));
+        }
+
+        ImmutableBitSliceIndexBitmap bsi = (ImmutableBitSliceIndexBitmap) other;
+        RoaringBitmap otherEbm = bsi.getExistenceBitmap();
+        if (otherEbm.isEmpty()) {
+            return;
+        }
+
+        // merge two bsi into new slices
+        RoaringBitmap currentEbm = getExistenceBitmap();
+        int length = Integer.max(bitCount(), bsi.bitCount());
+        RoaringBitmap[] newSlices = new RoaringBitmap[length];
+        RoaringBitmap update = RoaringBitmap.and(otherEbm, currentEbm);
+        for (int i = 0; i < length; i++) {
+            RoaringBitmap left = i < bitCount() ? getSlice(i) : new RoaringBitmap();
+            RoaringBitmap right = i < bsi.bitCount() ? bsi.getSlice(i) : new RoaringBitmap();
+            newSlices[i] = RoaringBitmap.or(RoaringBitmap.andNot(left, update), right);
+        }
+
+        // we need to plus a value
+        if (min != bsi.min) {
+            long value = min > bsi.min ? min - bsi.min : bsi.min - min;
+            RoaringBitmap foundSet =
+                    min > bsi.min ? RoaringBitmap.andNot(currentEbm, otherEbm) : otherEbm;
+
+            RoaringBitmap carrier = new RoaringBitmap();
+            length = Math.max(Long.toBinaryString(value).length(), newSlices.length);
+            for (int i = 0; i < length; i++) {
+                long bit = (value >> i) & 1;
+                if (i > newSlices.length - 1) {
+                    newSlices = Arrays.copyOf(newSlices, newSlices.length + 1);
+                    newSlices[i] = new RoaringBitmap();
+                }
+                RoaringBitmap matchedSlice = RoaringBitmap.and(newSlices[i], foundSet);
+                // carry the slice by the last carrier
+                RoaringBitmap carriedSlice = RoaringBitmap.xor(matchedSlice, carrier);
+                carrier = RoaringBitmap.and(matchedSlice, carrier);
+                if (bit == 1) {
+                    // carry the slice
+                    RoaringBitmap current = RoaringBitmap.xor(carriedSlice, foundSet);
+                    carrier = RoaringBitmap.or(carrier, RoaringBitmap.and(carriedSlice, foundSet));
+                    newSlices[i] =
+                            RoaringBitmap.or(RoaringBitmap.andNot(newSlices[i], foundSet), current);
+                } else {
+                    newSlices[i] =
+                            RoaringBitmap.or(
+                                    RoaringBitmap.andNot(newSlices[i], foundSet), carriedSlice);
+                }
+            }
+
+            if (!carrier.isEmpty()) {
+                newSlices = Arrays.copyOf(newSlices, newSlices.length + 1);
+                newSlices[newSlices.length - 1] = carrier;
+            }
+        }
+
+        slices = newSlices;
+        ebm = RoaringBitmap.or(currentEbm, otherEbm);
+        min = Long.min(min, bsi.min);
+        max = Long.max(max, bsi.max);
+        body = null;
+        offsets = null;
     }
 
     @Override
@@ -471,22 +542,22 @@ public class ImmutableBitSliceIndexBitmap implements BitSliceIndex {
         }
 
         private void runOptimize() {
-            // subtract the minimum to reduce the number of slices
+            // minus the minimum to reduce the number of slices
             RoaringBitmap borrow = new RoaringBitmap();
             for (int i = 0; i < slices.length; i++) {
                 long bit = (min >> i) & 1;
                 RoaringBitmap slice = slices[i];
                 // after borrowed by the last bit slice
-                RoaringBitmap leftSlice = RoaringBitmap.andNot(slice, borrow);
+                RoaringBitmap borrowedSlice = RoaringBitmap.andNot(slice, borrow);
                 // elimination the state
                 RoaringBitmap eliminated = RoaringBitmap.andNot(borrow, slice);
                 if (bit == 1) {
-                    RoaringBitmap current = RoaringBitmap.andNot(ebm, leftSlice);
+                    RoaringBitmap current = RoaringBitmap.andNot(ebm, borrowedSlice);
                     borrow = RoaringBitmap.or(eliminated, current);
                     slices[i] = RoaringBitmap.andNot(current, eliminated);
                 } else {
                     borrow = eliminated;
-                    slices[i] = RoaringBitmap.or(leftSlice, borrow);
+                    slices[i] = RoaringBitmap.or(borrowedSlice, borrow);
                 }
             }
 

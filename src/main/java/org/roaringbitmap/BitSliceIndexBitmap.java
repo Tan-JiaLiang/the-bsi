@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.stream.IntStream;
 
 public class BitSliceIndexBitmap implements BitSliceIndex {
@@ -32,7 +33,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
     private final byte version;
     private long min;
     private long max;
-    private long emptySliceMask;
     private int[] offsets;
 
     private ByteBuffer body;
@@ -55,7 +55,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         for (int i = 0; i < bitCount(); i++) {
             slices[i] = new RoaringBitmap();
         }
-        this.emptySliceMask = 0;
     }
 
     public BitSliceIndexBitmap(ByteBuffer buffer) {
@@ -70,7 +69,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         // deserialize min & max
         min = buffer.getLong();
         max = buffer.getLong();
-        emptySliceMask = buffer.getLong();
 
         // read offsets
         byte length = buffer.get();
@@ -115,9 +113,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
 
         long bits = value;
 
-        // mark the empty slice
-        emptySliceMask |= bits;
-
         // only bit=1 need to set
         while (bits != 0) {
             getSlice(Long.numberOfTrailingZeros(bits)).add(key);
@@ -153,7 +148,129 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
 
     @Override
     public void merge(BitSliceIndex other) {
-        throw new UnsupportedOperationException("not support yet.");
+        if (other == null) {
+            return;
+        }
+
+        if (!(other instanceof BitSliceIndexBitmap)) {
+            throw new UnsupportedOperationException(
+                    "merge " + other.getClass().getName() + " is not support yet.");
+        }
+
+        BitSliceIndexBitmap bsi = (BitSliceIndexBitmap) other;
+        RoaringBitmap otherEbm = bsi.getExistenceBitmap();
+        if (otherEbm.isEmpty()) {
+            return;
+        }
+
+        RoaringBitmap currentEbm = getExistenceBitmap();
+        int length = Integer.max(bitCount(), bsi.bitCount());
+        RoaringBitmap[] newSlices = new RoaringBitmap[length];
+        RoaringBitmap update = RoaringBitmap.and(otherEbm, currentEbm);
+        for (int i = 0; i < length; i++) {
+            RoaringBitmap left = i < bitCount() ? getSlice(i) : new RoaringBitmap();
+            RoaringBitmap right = i < bsi.bitCount() ? bsi.getSlice(i) : new RoaringBitmap();
+            newSlices[i] = RoaringBitmap.or(RoaringBitmap.andNot(left, update), right);
+        }
+        slices = newSlices;
+        ebm = RoaringBitmap.or(currentEbm, otherEbm);
+        max = Long.max(max, bsi.max);
+        min = Long.min(min, bsi.min);
+    }
+
+    public void plus(long value, @Nullable RoaringBitmap foundSet) {
+        RoaringBitmap mergedFoundSet = isNotNull(foundSet);
+        if (mergedFoundSet.isEmpty()) {
+            return;
+        }
+
+        // should not be empty
+        long min = min(mergedFoundSet);
+        long max = max(mergedFoundSet);
+
+        RoaringBitmap carrier = new RoaringBitmap();
+        int length = Math.max(Long.toBinaryString(value).length(), slices.length);
+        for (int i = 0; i < length; i++) {
+            long bit = (value >> i) & 1;
+            if (i > slices.length - 1) {
+                slices = Arrays.copyOf(slices, slices.length + 1);
+                slices[i] = new RoaringBitmap();
+            }
+            RoaringBitmap matchedSlice = RoaringBitmap.and(slices[i], mergedFoundSet);
+            // carry the slice by the last carrier
+            RoaringBitmap carriedSlice = RoaringBitmap.xor(matchedSlice, carrier);
+            carrier = RoaringBitmap.and(matchedSlice, carrier);
+            if (bit == 1) {
+                // carry the slice
+                RoaringBitmap current = RoaringBitmap.xor(carriedSlice, mergedFoundSet);
+                carrier =
+                        RoaringBitmap.or(carrier, RoaringBitmap.and(carriedSlice, mergedFoundSet));
+                slices[i] =
+                        RoaringBitmap.or(RoaringBitmap.andNot(slices[i], mergedFoundSet), current);
+            } else {
+                slices[i] =
+                        RoaringBitmap.or(
+                                RoaringBitmap.andNot(slices[i], mergedFoundSet), carriedSlice);
+            }
+        }
+
+        if (!carrier.isEmpty()) {
+            slices = Arrays.copyOf(slices, slices.length + 1);
+            slices[slices.length - 1] = carrier;
+        }
+
+        this.min = Math.min(this.min, min - value);
+        this.max = Math.min(this.max, max - value);
+    }
+
+    public void minus(long value, @Nullable RoaringBitmap foundSet) {
+        if (value > min) {
+            throw new IllegalArgumentException("the value can not less than the min value");
+        }
+
+        RoaringBitmap mergedFoundSet = isNotNull(foundSet);
+        if (mergedFoundSet.isEmpty()) {
+            return;
+        }
+
+        // should not be empty
+        long min = min(mergedFoundSet);
+        long max = max(mergedFoundSet);
+
+        RoaringBitmap borrow = new RoaringBitmap();
+        for (int i = 0; i < slices.length; i++) {
+            long bit = (value >> i) & 1;
+            RoaringBitmap matchedSlice = RoaringBitmap.and(slices[i], mergedFoundSet);
+            // after borrowed by the last bit slice
+            RoaringBitmap borrowedSlice = RoaringBitmap.andNot(matchedSlice, borrow);
+            // elimination the state
+            RoaringBitmap eliminated = RoaringBitmap.andNot(borrow, matchedSlice);
+            if (bit == 1) {
+                RoaringBitmap current = RoaringBitmap.andNot(mergedFoundSet, borrowedSlice);
+                borrow = RoaringBitmap.or(eliminated, current);
+                slices[i] =
+                        RoaringBitmap.or(
+                                RoaringBitmap.andNot(slices[i], mergedFoundSet),
+                                RoaringBitmap.andNot(current, eliminated));
+            } else {
+                borrow = eliminated;
+                slices[i] =
+                        RoaringBitmap.or(
+                                RoaringBitmap.andNot(slices[i], mergedFoundSet),
+                                RoaringBitmap.or(borrowedSlice, borrow));
+            }
+        }
+
+        // find the first not empty slice start from the end
+        int end = slices.length - 1;
+        for (; end > 0; end--) {
+            if (!slices[end].isEmpty()) {
+                break;
+            }
+        }
+        slices = Arrays.copyOfRange(slices, 0, end + 1);
+        this.min = Math.min(this.min, min - value);
+        this.max = Math.min(this.max, max - value);
     }
 
     @Override
@@ -191,7 +308,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         buffer.put(CURRENT_VERSION);
         buffer.putLong(min);
         buffer.putLong(max);
-        buffer.putLong(emptySliceMask);
         buffer.put((byte) bitCount());
         for (int offset : offsets) {
             buffer.putInt(offset);
@@ -273,19 +389,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
 
         // if there is a run of k set bits starting from 0, [0, k] operations can be eliminated.
         int start = Long.numberOfTrailingZeros(~predicate);
-
-        // using empty slice mask to do some skip
-        if (emptySliceMask != generateMask(max)) {
-            // if there are successive empty slices from 0 to k, [0, k] operations can be
-            // eliminated.
-            start = Math.max(start, Long.numberOfTrailingZeros(emptySliceMask));
-
-            // if there is a empty slice at position k and the bit k is present in the threshold x
-            // skip k operations, and the state is an empty bitmap.
-            int skip = Long.SIZE - Long.numberOfLeadingZeros(predicate & ~emptySliceMask);
-            start = Math.max(start, skip);
-        }
-
         for (int i = start; i < bitCount(); i++) {
             if (state == null) {
                 state = getSlice(i).clone();
@@ -458,10 +561,6 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         }
 
         return isNotNull(foundSet).getLongCardinality();
-    }
-
-    protected long getEmptySliceMask() {
-        return emptySliceMask;
     }
 
     protected RoaringBitmap[] getSlices() {

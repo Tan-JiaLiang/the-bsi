@@ -21,7 +21,6 @@ package org.roaringbitmap;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -70,32 +69,6 @@ public class BitSliceIndexBitmapMinorTest {
         assertThat(range.lte(3)).isEqualTo(RoaringBitmap.bitmapOf(0, 1, 2, 18));
         assertThat(range.lte(10, RoaringBitmap.bitmapOf(0, 1, 2, 18, 25)))
                 .isEqualTo(RoaringBitmap.bitmapOf(0, 1, 2, 18));
-    }
-
-    @Test
-    public void testEmptyMask() {
-        BitSliceIndexBitmap range = new BitSliceIndexBitmap();
-        range.set(0, 9);
-        range.set(2, 10);
-        range.set(5, 11);
-        range.set(18, 1);
-        range.set(19, 2);
-        range.set(21, 3);
-
-        ByteBuffer serialize = range.serialize();
-        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap(ByteBuffer.wrap(serialize.array()));
-
-        RoaringBitmap[] slices = bsi.getSlices();
-        long emptySliceMask = bsi.getEmptySliceMask();
-
-        for (int i = 0; i < slices.length; i++) {
-            long emptySliceBit = (emptySliceMask >> i) & 1;
-            if (emptySliceBit == 0) {
-                assertThat(slices[i].isEmpty()).isTrue();
-            }
-        }
-
-        assertThat(range.gt(6)).isEqualTo(RoaringBitmap.bitmapOf(0, 2, 5));
     }
 
     @Test
@@ -244,5 +217,97 @@ public class BitSliceIndexBitmapMinorTest {
         System.out.println(Long.toBinaryString(10));
         System.out.println(Long.numberOfLeadingZeros(10));
         System.out.println(Long.SIZE - Long.numberOfLeadingZeros(10));
+    }
+
+    @Test
+    public void testMerge() {
+        BitSliceIndexBitmap range1 = new BitSliceIndexBitmap();
+        range1.set(0, 1);
+        range1.set(2, 10);
+        range1.set(3, 7);
+
+        BitSliceIndexBitmap range2 = new BitSliceIndexBitmap();
+        range2.set(1, 3);
+        range2.set(4, 9);
+        range2.set(5, 9);
+        range2.set(0, 11);
+        range2.set(2, 1);
+
+        range1.merge(range2);
+
+        RoaringBitmap ebm = range1.isNotNull();
+        assertThat(ebm).isEqualTo(RoaringBitmap.bitmapOf(0, 1, 2, 3, 4, 5));
+        assertThat(range1.get(0)).isEqualTo(11);
+        assertThat(range1.get(1)).isEqualTo(3);
+        assertThat(range1.get(2)).isEqualTo(1);
+        assertThat(range1.get(3)).isEqualTo(7);
+        assertThat(range1.get(4)).isEqualTo(9);
+        assertThat(range1.get(5)).isEqualTo(9);
+    }
+
+    @Test
+    public void testPlus() {
+        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
+        bsi.set(0, 5);
+        bsi.set(1, 6);
+        bsi.set(3, 5);
+        bsi.set(8, 10);
+        bsi.set(9, 15);
+        bsi.set(15, 20);
+
+        bsi.plus(10, null);
+        assertThat(bsi.get(0)).isEqualTo(15);
+        assertThat(bsi.get(1)).isEqualTo(16);
+        assertThat(bsi.get(3)).isEqualTo(15);
+        assertThat(bsi.get(8)).isEqualTo(20);
+        assertThat(bsi.get(9)).isEqualTo(25);
+        assertThat(bsi.get(15)).isEqualTo(30);
+    }
+
+    @Test
+    public void testPlus2() {
+        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
+        bsi.set(0, 5);
+        bsi.set(1, 6);
+        bsi.set(3, 5);
+        bsi.set(8, 10);
+        bsi.set(9, 15);
+        bsi.set(15, 20);
+
+        bsi.plus(10, RoaringBitmap.bitmapOf(0, 1, 2, 8, 10));
+        assertThat(bsi.get(0)).isEqualTo(15);
+        assertThat(bsi.get(1)).isEqualTo(16);
+        assertThat(bsi.get(3)).isEqualTo(5);
+        assertThat(bsi.get(8)).isEqualTo(20);
+        assertThat(bsi.get(9)).isEqualTo(15);
+        assertThat(bsi.get(15)).isEqualTo(20);
+    }
+
+    @Test
+    public void testPlus3() {
+        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
+        bsi.set(0, 5);
+        bsi.set(1, 6);
+        bsi.set(3, 5);
+        bsi.set(8, 10);
+        bsi.set(9, 15);
+        bsi.set(15, 20);
+
+        bsi.plus(1000, RoaringBitmap.bitmapOf(0, 1, 2, 8, 10));
+        assertThat(bsi.get(0)).isEqualTo(1005);
+        assertThat(bsi.get(1)).isEqualTo(1006);
+        assertThat(bsi.get(3)).isEqualTo(5);
+        assertThat(bsi.get(8)).isEqualTo(1010);
+        assertThat(bsi.get(9)).isEqualTo(15);
+        assertThat(bsi.get(15)).isEqualTo(20);
+    }
+
+    @Test
+    public void testPlus4() {
+        BitSliceIndexBitmap bsi = new BitSliceIndexBitmap();
+        bsi.set(0, 7);
+
+        bsi.plus(1, null);
+        assertThat(bsi.get(0)).isEqualTo(8);
     }
 }
