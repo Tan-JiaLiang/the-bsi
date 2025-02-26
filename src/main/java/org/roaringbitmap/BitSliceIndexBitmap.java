@@ -453,6 +453,12 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
                 .sum();
     }
 
+    @Nullable
+    @Override
+    public Long sumDistinct(@Nullable RoaringBitmap foundSet) {
+        throw new UnsupportedOperationException("not support yet.");
+    }
+
     @Override
     public long count(@Nullable RoaringBitmap foundSet) {
         if (foundSet != null && foundSet.isEmpty()) {
@@ -465,6 +471,16 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         }
 
         return isNotNull(foundSet).getLongCardinality();
+    }
+
+    @Override
+    public long countDistinct(@Nullable RoaringBitmap foundSet) {
+        throw new UnsupportedOperationException("not support yet.");
+    }
+
+    @Override
+    public RoaringBitmap distinct(@Nullable RoaringBitmap foundSet) {
+        throw new UnsupportedOperationException("not support yet.");
     }
 
     protected RoaringBitmap[] getSlices() {

@@ -18,6 +18,8 @@
 
 package org.roaringbitmap;
 
+import org.roaringbitmap.longlong.Roaring64Bitmap;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -377,6 +379,33 @@ public class ImmutableBitSliceIndexBitmap implements BitSliceIndex {
                 + (min * state.getCardinality());
     }
 
+    @Nullable
+    @Override
+    public Long sumDistinct(@Nullable RoaringBitmap foundSet) {
+        Long sum = null;
+        if (foundSet != null && foundSet.isEmpty()) {
+            return sum;
+        }
+
+        RoaringBitmap ebm = getExistenceBitmap();
+        if (ebm.isEmpty()) {
+            return sum;
+        }
+
+        RoaringBitmap fixedFoundSet = isNotNull(foundSet);
+        Roaring64Bitmap values = new Roaring64Bitmap();
+        for (Integer key : fixedFoundSet) {
+            Long value = this.get(key);
+            if (value == null || values.contains(value)) {
+                continue;
+            }
+            values.add(value);
+            sum = sum == null ? value : sum + value;
+        }
+
+        return sum;
+    }
+
     @Override
     public long count(@Nullable RoaringBitmap foundSet) {
         if (foundSet != null && foundSet.isEmpty()) {
@@ -389,6 +418,58 @@ public class ImmutableBitSliceIndexBitmap implements BitSliceIndex {
         }
 
         return isNotNull(foundSet).getLongCardinality();
+    }
+
+    @Override
+    public long countDistinct(@Nullable RoaringBitmap foundSet) {
+        long count = 0L;
+        if (foundSet != null && foundSet.isEmpty()) {
+            return count;
+        }
+
+        RoaringBitmap ebm = getExistenceBitmap();
+        if (ebm.isEmpty()) {
+            return count;
+        }
+
+        RoaringBitmap fixedFoundSet = isNotNull(foundSet);
+        Roaring64Bitmap values = new Roaring64Bitmap();
+        for (Integer key : fixedFoundSet) {
+            Long value = this.get(key);
+            if (value == null || values.contains(value)) {
+                continue;
+            }
+            values.add(value);
+            count++;
+        }
+
+        return count;
+    }
+
+    @Override
+    public RoaringBitmap distinct(@Nullable RoaringBitmap foundSet) {
+        if (foundSet != null && foundSet.isEmpty()) {
+            return new RoaringBitmap();
+        }
+
+        RoaringBitmap ebm = getExistenceBitmap();
+        if (ebm.isEmpty()) {
+            return new RoaringBitmap();
+        }
+
+        RoaringBitmap fixedFoundSet = isNotNull(foundSet);
+        RoaringBitmap position = new RoaringBitmap();
+        Roaring64Bitmap values = new Roaring64Bitmap();
+        for (Integer key : fixedFoundSet) {
+            Long value = this.get(key);
+            if (value == null || values.contains(value)) {
+                continue;
+            }
+            values.add(value);
+            position.add(key);
+        }
+
+        return position;
     }
 
     private RoaringBitmap getSlice(int index) {

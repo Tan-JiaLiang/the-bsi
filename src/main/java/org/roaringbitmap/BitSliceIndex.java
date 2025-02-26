@@ -58,7 +58,14 @@ public interface BitSliceIndex {
     @Nullable
     Long sum(@Nullable RoaringBitmap foundSet);
 
+    @Nullable
+    Long sumDistinct(@Nullable RoaringBitmap foundSet);
+
     long count(@Nullable RoaringBitmap foundSet);
+
+    long countDistinct(@Nullable RoaringBitmap foundSet);
+
+    RoaringBitmap distinct(@Nullable RoaringBitmap foundSet);
 
     default RoaringBitmap lt(long predicate, @Nullable RoaringBitmap foundSet) {
         return lte(predicate - 1, foundSet);
@@ -116,7 +123,19 @@ public interface BitSliceIndex {
     }
 
     @Nullable
-    default Long count() {
+    default Long sumDistinct() {
+        return sumDistinct(null);
+    }
+
+    default long count() {
         return count(null);
+    }
+
+    default long countDistinct() {
+        return countDistinct(null);
+    }
+
+    default RoaringBitmap distinct() {
+        return distinct(null);
     }
 }

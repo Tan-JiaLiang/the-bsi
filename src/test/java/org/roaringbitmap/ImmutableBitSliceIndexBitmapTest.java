@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -493,6 +494,90 @@ public class ImmutableBitSliceIndexBitmapTest {
                 assertThat(bottomK).contains(bsi.get(index));
             }
         }
+    }
+
+    @Test
+    public void testCountDistinct() {
+        // test without found set
+        long cnt1 =
+                pairs.stream().filter(x -> x.value != null).map(x -> x.value).distinct().count();
+        assertThat(bsi.countDistinct()).isEqualTo(cnt1);
+
+        // test with found set
+        RoaringBitmap foundSet = new RoaringBitmap();
+        for (int i = 0; i < 10000; i++) {
+            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        }
+        for (int i = 0; i < 10; i++) {
+            long cnt2 =
+                    pairs.stream()
+                            .filter(x -> foundSet.contains(x.index))
+                            .filter(x -> x.value != null)
+                            .map(x -> x.value)
+                            .distinct()
+                            .count();
+            assertThat(bsi.countDistinct(foundSet)).isEqualTo(cnt2);
+        }
+    }
+
+    @Test
+    public void testSumDistinct() {
+        // test without found set
+        long sum1 =
+                pairs.stream()
+                        .filter(x -> x.value != null)
+                        .map(x -> x.value)
+                        .distinct()
+                        .reduce(0L, Long::sum);
+        assertThat(bsi.sumDistinct()).isEqualTo(sum1);
+
+        // test with found set
+        RoaringBitmap foundSet = new RoaringBitmap();
+        for (int i = 0; i < 10000; i++) {
+            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        }
+        long cnt2 =
+                pairs.stream()
+                        .filter(x -> foundSet.contains(x.index))
+                        .filter(x -> x.value != null)
+                        .map(x -> x.value)
+                        .distinct()
+                        .reduce(0L, Long::sum);
+        assertThat(bsi.sumDistinct(foundSet)).isEqualTo(cnt2);
+    }
+
+    @Test
+    public void testDistinct() {
+        // test without found set
+        RoaringBitmap dst1 = new RoaringBitmap();
+        Set<Long> v1 = new HashSet<>();
+        for (Pair pair : pairs) {
+            if (pair.value == null || v1.contains(pair.value)) {
+                continue;
+            }
+            v1.add(pair.value);
+            dst1.add(pair.index);
+        }
+        assertThat(bsi.distinct()).isEqualTo(dst1);
+
+        // test with found set
+        RoaringBitmap foundSet = new RoaringBitmap();
+        for (int i = 0; i < 10000; i++) {
+            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        }
+        RoaringBitmap dst2 = new RoaringBitmap();
+        Set<Long> v2 = new HashSet<>();
+        for (Pair pair : pairs) {
+            if (!foundSet.contains(pair.index)) {
+                continue;
+            }
+            if (pair.value == null || v2.contains(pair.value)) {
+                continue;
+            }
+            v2.add(pair.value);
+            dst2.add(pair.index);
+        }
+        assertThat(bsi.distinct(foundSet)).isEqualTo(dst2);
     }
 
     private int generateNextValue() {
