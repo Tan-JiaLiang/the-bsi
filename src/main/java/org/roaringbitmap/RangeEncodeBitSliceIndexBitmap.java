@@ -512,7 +512,7 @@ public class RangeEncodeBitSliceIndexBitmap implements BitSliceIndex {
     }
 
     @Override
-    public long count(@Nullable RoaringBitmap foundSet) {
+    public long countNotNull(@Nullable RoaringBitmap foundSet) {
         if (foundSet != null && foundSet.isEmpty()) {
             return 0L;
         }

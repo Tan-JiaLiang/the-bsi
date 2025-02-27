@@ -405,11 +405,11 @@ public class RangeEncodeBitSliceIndexBitmapTest {
     }
 
     @Test
-    public void testCount() {
+    public void testCountNotNull() {
         // test without found set
         for (int i = 0; i < 10; i++) {
             long count = pairs.stream().filter(x -> x.value != null).count();
-            assertThat(bsi.count()).isEqualTo(count);
+            assertThat(bsi.countNotNull()).isEqualTo(count);
         }
 
         // test with found set
@@ -423,7 +423,7 @@ public class RangeEncodeBitSliceIndexBitmapTest {
                             .filter(x -> foundSet.contains(x.index))
                             .filter(x -> x.value != null)
                             .count();
-            assertThat(bsi.count(foundSet)).isEqualTo(count);
+            assertThat(bsi.countNotNull(foundSet)).isEqualTo(count);
         }
     }
 
