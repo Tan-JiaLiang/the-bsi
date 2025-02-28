@@ -203,7 +203,9 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         List<DictionaryBlock<KEY>> blocks = getBlocks();
         int index =
                 Collections.binarySearch(
-                        blocks, null, (block, ignore) -> Integer.compare(block.code, (int) (long) code));
+                        blocks,
+                        null,
+                        (block, ignore) -> Integer.compare(block.code, (int) (long) code));
         if (index < 0) {
             index = -2 - index;
         }
@@ -369,7 +371,7 @@ public class RangeEncodeBitSliceBitmap<KEY> {
 
         public byte[] serialize() {
             if (rid == 0) {
-                return new byte[]{};
+                return new byte[] {};
             }
 
             nullBitmaps.runOptimize();

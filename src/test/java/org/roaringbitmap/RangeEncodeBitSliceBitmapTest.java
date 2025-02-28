@@ -71,7 +71,9 @@ public class RangeEncodeBitSliceBitmapTest {
             appender.append(pair.value);
         }
         this.comparator = factory.createCompactor();
-        this.range = RangeEncodeBitSliceBitmap.map(new ByteArraySeekableStream(appender.serialize()), 0, factory);
+        this.range =
+                RangeEncodeBitSliceBitmap.map(
+                        new ByteArraySeekableStream(appender.serialize()), 0, factory);
         this.pairs = Collections.unmodifiableList(pairs);
     }
 
@@ -91,28 +93,28 @@ public class RangeEncodeBitSliceBitmapTest {
                                             (x1, x2) -> x1.or(x2)));
         }
 
-//        // test predicate with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            String predicate = BASE + generateNextValue();
-//            assertThat(range.eq(predicate, foundSet))
-//                    .isEqualTo(
-//                            pairs.stream()
-//                                    .filter(x -> foundSet.contains(x.index))
-//                                    .filter(x -> Objects.equals(x.value, predicate))
-//                                    .map(x -> x.index)
-//                                    .collect(
-//                                            RoaringBitmap::new,
-//                                            RoaringBitmap::add,
-//                                            (x1, x2) -> x1.or(x2)));
-//        }
-//
-//        // test predicate out of the value bound
-//        assertThat(range.eq(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
-//        assertThat(range.eq(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
+        //        // test predicate with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            String predicate = BASE + generateNextValue();
+        //            assertThat(range.eq(predicate, foundSet))
+        //                    .isEqualTo(
+        //                            pairs.stream()
+        //                                    .filter(x -> foundSet.contains(x.index))
+        //                                    .filter(x -> Objects.equals(x.value, predicate))
+        //                                    .map(x -> x.index)
+        //                                    .collect(
+        //                                            RoaringBitmap::new,
+        //                                            RoaringBitmap::add,
+        //                                            (x1, x2) -> x1.or(x2)));
+        //        }
+        //
+        //        // test predicate out of the value bound
+        //        assertThat(range.eq(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
+        //        assertThat(range.eq(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
     }
 
     @Test
@@ -132,29 +134,29 @@ public class RangeEncodeBitSliceBitmapTest {
                                             (x1, x2) -> x1.or(x2)));
         }
 
-//        // test predicate with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            long predicate = generateNextValue();
-//            assertThat(range.lt(predicate, foundSet))
-//                    .isEqualTo(
-//                            pairs.stream()
-//                                    .filter(x -> foundSet.contains(x.index))
-//                                    .filter(x -> x.value != null)
-//                                    .filter(x -> x.value < predicate)
-//                                    .map(x -> x.index)
-//                                    .collect(
-//                                            RoaringBitmap::new,
-//                                            RoaringBitmap::add,
-//                                            (x1, x2) -> x1.or(x2)));
-//        }
-//
-//        // test predicate out of the value bound
-//        assertThat(range.lt(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
-//        assertThat(range.lt(VALUE_GT_MAX)).isEqualTo(range.isNotNull());
+        //        // test predicate with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            long predicate = generateNextValue();
+        //            assertThat(range.lt(predicate, foundSet))
+        //                    .isEqualTo(
+        //                            pairs.stream()
+        //                                    .filter(x -> foundSet.contains(x.index))
+        //                                    .filter(x -> x.value != null)
+        //                                    .filter(x -> x.value < predicate)
+        //                                    .map(x -> x.index)
+        //                                    .collect(
+        //                                            RoaringBitmap::new,
+        //                                            RoaringBitmap::add,
+        //                                            (x1, x2) -> x1.or(x2)));
+        //        }
+        //
+        //        // test predicate out of the value bound
+        //        assertThat(range.lt(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
+        //        assertThat(range.lt(VALUE_GT_MAX)).isEqualTo(range.isNotNull());
     }
 
     @Test
@@ -175,29 +177,29 @@ public class RangeEncodeBitSliceBitmapTest {
                                     .getCardinality());
         }
 
-//        // test predicate with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            long predicate = generateNextValue();
-//            assertThat(range.lte(predicate, foundSet))
-//                    .isEqualTo(
-//                            pairs.stream()
-//                                    .filter(x -> foundSet.contains(x.index))
-//                                    .filter(x -> x.value != null)
-//                                    .filter(x -> x.value <= predicate)
-//                                    .map(x -> x.index)
-//                                    .collect(
-//                                            RoaringBitmap::new,
-//                                            RoaringBitmap::add,
-//                                            (x1, x2) -> x1.or(x2)));
-//        }
-//
-//        // test predicate out of the value bound
-//        assertThat(range.lte(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
-//        assertThat(range.lte(VALUE_GT_MAX)).isEqualTo(range.isNotNull());
+        //        // test predicate with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            long predicate = generateNextValue();
+        //            assertThat(range.lte(predicate, foundSet))
+        //                    .isEqualTo(
+        //                            pairs.stream()
+        //                                    .filter(x -> foundSet.contains(x.index))
+        //                                    .filter(x -> x.value != null)
+        //                                    .filter(x -> x.value <= predicate)
+        //                                    .map(x -> x.index)
+        //                                    .collect(
+        //                                            RoaringBitmap::new,
+        //                                            RoaringBitmap::add,
+        //                                            (x1, x2) -> x1.or(x2)));
+        //        }
+        //
+        //        // test predicate out of the value bound
+        //        assertThat(range.lte(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
+        //        assertThat(range.lte(VALUE_GT_MAX)).isEqualTo(range.isNotNull());
     }
 
     @Test
@@ -217,29 +219,29 @@ public class RangeEncodeBitSliceBitmapTest {
                                             (x1, x2) -> x1.or(x2)));
         }
 
-//        // test predicate with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            long predicate = generateNextValue();
-//            assertThat(range.gt(predicate, foundSet))
-//                    .isEqualTo(
-//                            pairs.stream()
-//                                    .filter(x -> foundSet.contains(x.index))
-//                                    .filter(x -> x.value != null)
-//                                    .filter(x -> x.value > predicate)
-//                                    .map(x -> x.index)
-//                                    .collect(
-//                                            RoaringBitmap::new,
-//                                            RoaringBitmap::add,
-//                                            (x1, x2) -> x1.or(x2)));
-//        }
-//
-//        // test predicate out of the value bound
-//        assertThat(range.gt(VALUE_LT_MIN)).isEqualTo(range.isNotNull());
-//        assertThat(range.gt(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
+        //        // test predicate with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            long predicate = generateNextValue();
+        //            assertThat(range.gt(predicate, foundSet))
+        //                    .isEqualTo(
+        //                            pairs.stream()
+        //                                    .filter(x -> foundSet.contains(x.index))
+        //                                    .filter(x -> x.value != null)
+        //                                    .filter(x -> x.value > predicate)
+        //                                    .map(x -> x.index)
+        //                                    .collect(
+        //                                            RoaringBitmap::new,
+        //                                            RoaringBitmap::add,
+        //                                            (x1, x2) -> x1.or(x2)));
+        //        }
+        //
+        //        // test predicate out of the value bound
+        //        assertThat(range.gt(VALUE_LT_MIN)).isEqualTo(range.isNotNull());
+        //        assertThat(range.gt(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
     }
 
     @Test
@@ -259,29 +261,29 @@ public class RangeEncodeBitSliceBitmapTest {
                                             (x1, x2) -> x1.or(x2)));
         }
 
-//        // test predicate with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            long predicate = generateNextValue();
-//            assertThat(range.gte(predicate, foundSet))
-//                    .isEqualTo(
-//                            pairs.stream()
-//                                    .filter(x -> foundSet.contains(x.index))
-//                                    .filter(x -> x.value != null)
-//                                    .filter(x -> x.value >= predicate)
-//                                    .map(x -> x.index)
-//                                    .collect(
-//                                            RoaringBitmap::new,
-//                                            RoaringBitmap::add,
-//                                            (x1, x2) -> x1.or(x2)));
-//        }
-//
-//        // test predicate out of the value bound
-//        assertThat(range.gte(VALUE_LT_MIN)).isEqualTo(range.isNotNull());
-//        assertThat(range.gte(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
+        //        // test predicate with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            long predicate = generateNextValue();
+        //            assertThat(range.gte(predicate, foundSet))
+        //                    .isEqualTo(
+        //                            pairs.stream()
+        //                                    .filter(x -> foundSet.contains(x.index))
+        //                                    .filter(x -> x.value != null)
+        //                                    .filter(x -> x.value >= predicate)
+        //                                    .map(x -> x.index)
+        //                                    .collect(
+        //                                            RoaringBitmap::new,
+        //                                            RoaringBitmap::add,
+        //                                            (x1, x2) -> x1.or(x2)));
+        //        }
+        //
+        //        // test predicate out of the value bound
+        //        assertThat(range.gte(VALUE_LT_MIN)).isEqualTo(range.isNotNull());
+        //        assertThat(range.gte(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
     }
 
     @Test
@@ -311,22 +313,22 @@ public class RangeEncodeBitSliceBitmapTest {
             assertThat(range.min()).isEqualTo(min);
         }
 
-//        // test with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            Optional<Pair> opt =
-//                    pairs.stream()
-//                            .filter(x -> foundSet.contains(x.index))
-//                            .filter(x -> x.value != null)
-//                            .min(Comparator.comparing(x -> x.value));
-//            assertThat(opt).isPresent();
-//            Long min = opt.get().value;
-//            assertThat(min).isNotNull();
-//            assertThat(range.min(foundSet)).isEqualTo(min);
-//        }
+        //        // test with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            Optional<Pair> opt =
+        //                    pairs.stream()
+        //                            .filter(x -> foundSet.contains(x.index))
+        //                            .filter(x -> x.value != null)
+        //                            .min(Comparator.comparing(x -> x.value));
+        //            assertThat(opt).isPresent();
+        //            Long min = opt.get().value;
+        //            assertThat(min).isNotNull();
+        //            assertThat(range.min(foundSet)).isEqualTo(min);
+        //        }
     }
 
     @Test
@@ -343,22 +345,22 @@ public class RangeEncodeBitSliceBitmapTest {
             assertThat(range.max()).isEqualTo(max);
         }
 
-//        // test with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            Optional<Pair> opt =
-//                    pairs.stream()
-//                            .filter(x -> foundSet.contains(x.index))
-//                            .filter(x -> x.value != null)
-//                            .max(Comparator.comparing(x -> x.value));
-//            assertThat(opt).isPresent();
-//            Long max = opt.get().value;
-//            assertThat(max).isNotNull();
-//            assertThat(range.max(foundSet)).isEqualTo(max);
-//        }
+        //        // test with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            Optional<Pair> opt =
+        //                    pairs.stream()
+        //                            .filter(x -> foundSet.contains(x.index))
+        //                            .filter(x -> x.value != null)
+        //                            .max(Comparator.comparing(x -> x.value));
+        //            assertThat(opt).isPresent();
+        //            Long max = opt.get().value;
+        //            assertThat(max).isNotNull();
+        //            assertThat(range.max(foundSet)).isEqualTo(max);
+        //        }
     }
 
     @Test
@@ -369,19 +371,19 @@ public class RangeEncodeBitSliceBitmapTest {
             assertThat(range.countNotNull()).isEqualTo(count);
         }
 
-//        // test with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            long count =
-//                    pairs.stream()
-//                            .filter(x -> foundSet.contains(x.index))
-//                            .filter(x -> x.value != null)
-//                            .count();
-//            assertThat(range.countNotNull(foundSet)).isEqualTo(count);
-//        }
+        //        // test with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            long count =
+        //                    pairs.stream()
+        //                            .filter(x -> foundSet.contains(x.index))
+        //                            .filter(x -> x.value != null)
+        //                            .count();
+        //            assertThat(range.countNotNull(foundSet)).isEqualTo(count);
+        //        }
     }
 
     @Test
@@ -402,26 +404,26 @@ public class RangeEncodeBitSliceBitmapTest {
             }
         }
 
-//        // test with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            int k = random.nextInt(10000);
-//            Set<Long> topK =
-//                    pairs.stream()
-//                            .filter(x -> foundSet.contains(x.index))
-//                            .filter(x -> x.value != null)
-//                            .sorted((x, y) -> -Long.compare(x.value, y.value))
-//                            .limit(k)
-//                            .map(x -> x.value)
-//                            .collect(Collectors.toSet());
-//            RoaringBitmap actual = range.topK(k, foundSet);
-//            for (Integer index : actual) {
-//                assertThat(topK).contains(range.get(index));
-//            }
-//        }
+        //        // test with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            int k = random.nextInt(10000);
+        //            Set<Long> topK =
+        //                    pairs.stream()
+        //                            .filter(x -> foundSet.contains(x.index))
+        //                            .filter(x -> x.value != null)
+        //                            .sorted((x, y) -> -Long.compare(x.value, y.value))
+        //                            .limit(k)
+        //                            .map(x -> x.value)
+        //                            .collect(Collectors.toSet());
+        //            RoaringBitmap actual = range.topK(k, foundSet);
+        //            for (Integer index : actual) {
+        //                assertThat(topK).contains(range.get(index));
+        //            }
+        //        }
     }
 
     @Test
@@ -442,26 +444,26 @@ public class RangeEncodeBitSliceBitmapTest {
             }
         }
 
-//         test with found set
-//        RoaringBitmap foundSet = new RoaringBitmap();
-//        for (int i = 0; i < 10000; i++) {
-//            foundSet.add(random.nextInt(NUM_OF_ROWS));
-//        }
-//        for (int i = 0; i < 10; i++) {
-//            int k = random.nextInt(10000);
-//            Set<Long> bottomK =
-//                    pairs.stream()
-//                            .filter(x -> foundSet.contains(x.index))
-//                            .filter(x -> x.value != null)
-//                            .sorted(Comparator.comparingLong(x -> x.value))
-//                            .limit(k)
-//                            .map(x -> x.value)
-//                            .collect(Collectors.toSet());
-//            RoaringBitmap actual = range.bottomK(k, foundSet);
-//            for (Integer index : actual) {
-//                assertThat(bottomK).contains(range.get(index));
-//            }
-//        }
+        //         test with found set
+        //        RoaringBitmap foundSet = new RoaringBitmap();
+        //        for (int i = 0; i < 10000; i++) {
+        //            foundSet.add(random.nextInt(NUM_OF_ROWS));
+        //        }
+        //        for (int i = 0; i < 10; i++) {
+        //            int k = random.nextInt(10000);
+        //            Set<Long> bottomK =
+        //                    pairs.stream()
+        //                            .filter(x -> foundSet.contains(x.index))
+        //                            .filter(x -> x.value != null)
+        //                            .sorted(Comparator.comparingLong(x -> x.value))
+        //                            .limit(k)
+        //                            .map(x -> x.value)
+        //                            .collect(Collectors.toSet());
+        //            RoaringBitmap actual = range.bottomK(k, foundSet);
+        //            for (Integer index : actual) {
+        //                assertThat(bottomK).contains(range.get(index));
+        //            }
+        //        }
     }
 
     private int generateNextValue() {

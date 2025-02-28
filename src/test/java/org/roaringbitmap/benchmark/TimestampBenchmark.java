@@ -28,12 +28,10 @@ import org.roaringbitmap.RangeEncodeBitSliceBitmap;
 import org.roaringbitmap.RangeEncodeBitSliceIndexBitmap;
 import org.roaringbitmap.RoaringBitmap;
 import org.roaringbitmap.factory.LongKeyFactory;
-import org.roaringbitmap.fs.ByteArraySeekableStream;
 import org.roaringbitmap.fs.LocalSeekableInputStream;
 import org.roaringbitmap.fs.SeekableInputStream;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -94,8 +92,7 @@ public class TimestampBenchmark {
         Files.write(new File(ROARING_RE_BSI_PATH).toPath(), buffer.array());
 
         RangeEncodeBitSliceBitmap.Appender<Long> rangeAppender =
-                new RangeEncodeBitSliceBitmap.Appender<>(
-                        new LongKeyFactory(), Long.BYTES * 1024);
+                new RangeEncodeBitSliceBitmap.Appender<>(new LongKeyFactory(), Long.BYTES * 1024);
         for (Long value : values) {
             rangeAppender.append(value);
         }
