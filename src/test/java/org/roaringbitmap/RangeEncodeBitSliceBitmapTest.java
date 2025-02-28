@@ -39,7 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class RangeEncodeBitSliceBitmapTest {
 
     public static final int NUM_OF_ROWS = 1000000;
-    public static final int VALUE_BOUND = 10;
+    public static final int VALUE_BOUND = 100000;
+    public static final String VALUE_LT_MIN = "/";
+    public static final String VALUE_GT_MAX = "|";
     private final String BASE = "skdjfslfi-";
 
     private Random random;
@@ -112,9 +114,9 @@ public class RangeEncodeBitSliceBitmapTest {
         //                                            (x1, x2) -> x1.or(x2)));
         //        }
         //
-        //        // test predicate out of the value bound
-        //        assertThat(range.eq(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
-        //        assertThat(range.eq(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
+        // test predicate out of the value bound
+        assertThat(range.eq(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
+        assertThat(range.eq(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
     }
 
     @Test
@@ -154,9 +156,17 @@ public class RangeEncodeBitSliceBitmapTest {
         //                                            (x1, x2) -> x1.or(x2)));
         //        }
         //
-        //        // test predicate out of the value bound
-        //        assertThat(range.lt(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
-        //        assertThat(range.lt(VALUE_GT_MAX)).isEqualTo(range.isNotNull());
+        // test predicate out of the value bound
+        assertThat(range.lt(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
+        assertThat(range.lt(VALUE_GT_MAX))
+                .isEqualTo(
+                        pairs.stream()
+                                .filter(x -> x.value != null)
+                                .map(x -> x.index)
+                                .collect(
+                                        RoaringBitmap::new,
+                                        RoaringBitmap::add,
+                                        (x1, x2) -> x1.or(x2)));
     }
 
     @Test
@@ -197,9 +207,17 @@ public class RangeEncodeBitSliceBitmapTest {
         //                                            (x1, x2) -> x1.or(x2)));
         //        }
         //
-        //        // test predicate out of the value bound
-        //        assertThat(range.lte(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
-        //        assertThat(range.lte(VALUE_GT_MAX)).isEqualTo(range.isNotNull());
+        // test predicate out of the value bound
+        assertThat(range.lte(VALUE_LT_MIN)).isEqualTo(new RoaringBitmap());
+        assertThat(range.lte(VALUE_GT_MAX))
+                .isEqualTo(
+                        pairs.stream()
+                                .filter(x -> x.value != null)
+                                .map(x -> x.index)
+                                .collect(
+                                        RoaringBitmap::new,
+                                        RoaringBitmap::add,
+                                        (x1, x2) -> x1.or(x2)));
     }
 
     @Test
@@ -239,9 +257,17 @@ public class RangeEncodeBitSliceBitmapTest {
         //                                            (x1, x2) -> x1.or(x2)));
         //        }
         //
-        //        // test predicate out of the value bound
-        //        assertThat(range.gt(VALUE_LT_MIN)).isEqualTo(range.isNotNull());
-        //        assertThat(range.gt(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
+        // test predicate out of the value bound
+        assertThat(range.gt(VALUE_LT_MIN))
+                .isEqualTo(
+                        pairs.stream()
+                                .filter(x -> x.value != null)
+                                .map(x -> x.index)
+                                .collect(
+                                        RoaringBitmap::new,
+                                        RoaringBitmap::add,
+                                        (x1, x2) -> x1.or(x2)));
+        assertThat(range.gt(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
     }
 
     @Test
@@ -281,9 +307,17 @@ public class RangeEncodeBitSliceBitmapTest {
         //                                            (x1, x2) -> x1.or(x2)));
         //        }
         //
-        //        // test predicate out of the value bound
-        //        assertThat(range.gte(VALUE_LT_MIN)).isEqualTo(range.isNotNull());
-        //        assertThat(range.gte(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
+        // test predicate out of the value bound
+        assertThat(range.gte(VALUE_LT_MIN))
+                .isEqualTo(
+                        pairs.stream()
+                                .filter(x -> x.value != null)
+                                .map(x -> x.index)
+                                .collect(
+                                        RoaringBitmap::new,
+                                        RoaringBitmap::add,
+                                        (x1, x2) -> x1.or(x2)));
+        assertThat(range.gte(VALUE_GT_MAX)).isEqualTo(new RoaringBitmap());
     }
 
     @Test

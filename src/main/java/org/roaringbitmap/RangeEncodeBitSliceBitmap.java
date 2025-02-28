@@ -560,7 +560,7 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             if (this.code == code) {
                 return Optional.of(key);
             }
-            return Optional.of(getEntries().get(code - 1));
+            return Optional.of(getEntries().get(code - this.code - 1));
         }
 
         public void serializeBlock(DataOutputStream outputStream) {
