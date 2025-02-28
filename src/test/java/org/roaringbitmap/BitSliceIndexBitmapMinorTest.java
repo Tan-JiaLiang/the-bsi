@@ -27,6 +27,49 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class BitSliceIndexBitmapMinorTest {
 
     @Test
+    public void test111() {
+        System.out.println((1000));
+        System.out.println(Long.toBinaryString(1000).length());
+        System.out.println();
+        System.out.println((3000));
+        System.out.println(Long.toBinaryString(3000).length());
+        System.out.println();
+        System.out.println((5000));
+        System.out.println(Long.toBinaryString(5000).length());
+        System.out.println();
+        System.out.println((8000));
+        System.out.println(Long.toBinaryString(8000).length());
+        System.out.println();
+        System.out.println((10000));
+        System.out.println(Long.toBinaryString(10000).length());
+        System.out.println();
+        System.out.println((30000));
+        System.out.println(Long.toBinaryString(30000).length());
+        System.out.println();
+        System.out.println((50000));
+        System.out.println(Long.toBinaryString(50000).length());
+        System.out.println();
+        System.out.println((80000));
+        System.out.println(Long.toBinaryString(80000).length());
+        System.out.println();
+        System.out.println((100000));
+        System.out.println(Long.toBinaryString(100000).length());
+        System.out.println();
+        System.out.println((300000));
+        System.out.println(Long.toBinaryString(300000).length());
+        System.out.println();
+        System.out.println((500000));
+        System.out.println(Long.toBinaryString(500000).length());
+        System.out.println();
+        System.out.println((800000));
+        System.out.println(Long.toBinaryString(800000).length());
+        System.out.println();
+        System.out.println((1000000));
+        System.out.println(Long.toBinaryString(1000000).length());
+        System.out.println();
+    }
+
+    @Test
     public void testTimeMillis() {
         BitSliceIndexBitmap range = new BitSliceIndexBitmap();
         range.set(0, 1736907560000L);

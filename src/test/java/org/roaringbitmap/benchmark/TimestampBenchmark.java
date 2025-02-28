@@ -24,10 +24,16 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.roaringbitmap.BitSliceIndexBitmap;
 import org.roaringbitmap.ImmutableBitSliceIndexBitmap;
 import org.roaringbitmap.RangeBitmap;
+import org.roaringbitmap.RangeEncodeBitSliceBitmap;
 import org.roaringbitmap.RangeEncodeBitSliceIndexBitmap;
 import org.roaringbitmap.RoaringBitmap;
+import org.roaringbitmap.factory.LongKeyFactory;
+import org.roaringbitmap.fs.ByteArraySeekableStream;
+import org.roaringbitmap.fs.LocalSeekableInputStream;
+import org.roaringbitmap.fs.SeekableInputStream;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -46,6 +52,7 @@ public class TimestampBenchmark {
     private static final String RE_BSI_PATH = "src/test/resources/data/re-bsi.txt";
     private static final String ROARING_BSI_PATH = "src/test/resources/data/roaring-bsi.txt";
     private static final String ROARING_RE_BSI_PATH = "src/test/resources/data/roaring-re-bsi.txt";
+    private static final String RANGE_BITMAP_PATH = "src/test/resources/data/range-bitmap.txt";
 
     @BeforeAll
     public static void setup() throws IOException {
@@ -85,14 +92,33 @@ public class TimestampBenchmark {
         ByteBuffer buffer = ByteBuffer.allocate(appender.serializedSizeInBytes());
         appender.serialize(buffer);
         Files.write(new File(ROARING_RE_BSI_PATH).toPath(), buffer.array());
+
+        RangeEncodeBitSliceBitmap.Appender<Long> rangeAppender =
+                new RangeEncodeBitSliceBitmap.Appender<>(
+                        new LongKeyFactory(), Long.BYTES * 1024);
+        for (Long value : values) {
+            rangeAppender.append(value);
+        }
+        Files.write(new File(RANGE_BITMAP_PATH).toPath(), rangeAppender.serialize());
     }
 
     @AfterAll
     public static void after() throws IOException {
+        System.out.printf("%s size is %s%n", BSI_PATH, new File(BSI_PATH).length());
+        System.out.printf(
+                "%s size is %s%n", IMMUTABLE_BSI_PATH, new File(IMMUTABLE_BSI_PATH).length());
+        System.out.printf("%s size is %s%n", RE_BSI_PATH, new File(RE_BSI_PATH).length());
+        System.out.printf("%s size is %s%n", ROARING_BSI_PATH, new File(ROARING_BSI_PATH).length());
+        System.out.printf(
+                "%s size is %s%n", ROARING_RE_BSI_PATH, new File(ROARING_RE_BSI_PATH).length());
+        System.out.printf(
+                "%s size is %s%n", RANGE_BITMAP_PATH, new File(RANGE_BITMAP_PATH).length());
+
         Files.delete(new File(BSI_PATH).toPath());
         Files.delete(new File(IMMUTABLE_BSI_PATH).toPath());
         Files.delete(new File(RE_BSI_PATH).toPath());
         Files.delete(new File(ROARING_RE_BSI_PATH).toPath());
+        Files.delete(new File(RANGE_BITMAP_PATH).toPath());
     }
 
     @RepeatedTest(10)
@@ -180,6 +206,23 @@ public class TimestampBenchmark {
                                     ImmutableBitSliceIndexBitmap.map(buffer);
                             bsi.gt(value);
                         } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+
+        benchmark.addCase(
+                "range-bitmap",
+                10,
+                () -> {
+                    for (long value : values) {
+                        File file = new File(RANGE_BITMAP_PATH);
+
+                        try (SeekableInputStream stream = new LocalSeekableInputStream(file)) {
+                            RangeEncodeBitSliceBitmap<Long> bitmap =
+                                    RangeEncodeBitSliceBitmap.map(stream, 0, new LongKeyFactory());
+                            bitmap.gt(value);
+                        } catch (Exception e) {
                             throw new RuntimeException(e);
                         }
                     }
