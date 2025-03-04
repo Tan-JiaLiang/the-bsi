@@ -31,14 +31,14 @@ public interface KeyFactory<KEY> {
 
     Comparator<KEY> createCompactor();
 
+    int fixedSerializedSizeInBytes();
+
     interface KeySerializer<KEY> {
         void serialize(ByteBuffer input, KEY key);
 
         void serialize(DataOutputStream stream, KEY key) throws IOException;
 
         int serializedSizeInBytes(KEY key);
-
-        boolean fixedSize();
     }
 
     interface KeyDeserializer<KEY> {

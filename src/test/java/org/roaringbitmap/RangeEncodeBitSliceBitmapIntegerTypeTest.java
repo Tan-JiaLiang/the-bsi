@@ -20,7 +20,7 @@ package org.roaringbitmap;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.roaringbitmap.factory.StringKeyFactory;
+import org.roaringbitmap.factory.IntegerKeyFactory;
 import org.roaringbitmap.fs.ByteArraySeekableStream;
 
 import java.io.IOException;
@@ -36,18 +36,17 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class RangeEncodeBitSliceBitmapTest {
+public class RangeEncodeBitSliceBitmapIntegerTypeTest {
 
     public static final int NUM_OF_ROWS = 1000000;
-    public static final int VALUE_BOUND = 100000;
-    public static final String VALUE_LT_MIN = "/";
-    public static final String VALUE_GT_MAX = "|";
-    private final String BASE = "skdjfslfi-";
+    public static final int VALUE_BOUND = 800000;
+    public static final Integer VALUE_LT_MIN = 0;
+    public static final Integer VALUE_GT_MAX = VALUE_BOUND + 100;
 
     private Random random;
     private List<Pair> pairs;
-    private RangeEncodeBitSliceBitmap<String> range;
-    private Comparator<String> comparator;
+    private RangeEncodeBitSliceBitmap<Integer> range;
+    private Comparator<Integer> comparator;
 
     @BeforeEach
     public void setup() throws IOException {
@@ -60,14 +59,14 @@ public class RangeEncodeBitSliceBitmapTest {
                 pairs.add(new Pair(i, null));
                 continue;
             }
-            long next = generateNextValue();
+            int next = generateNextValue();
             min = Math.min(min == 0 ? next : min, next);
             max = Math.max(max == 0 ? next : max, next);
-            pairs.add(new Pair(i, BASE + next));
+            pairs.add(new Pair(i, next));
         }
 
-        StringKeyFactory factory = new StringKeyFactory();
-        RangeEncodeBitSliceBitmap.Appender<String> appender =
+        IntegerKeyFactory factory = new IntegerKeyFactory();
+        RangeEncodeBitSliceBitmap.Appender<Integer> appender =
                 new RangeEncodeBitSliceBitmap.Appender<>(factory, 16 * 1024);
         for (Pair pair : pairs) {
             appender.append(pair.value);
@@ -83,7 +82,7 @@ public class RangeEncodeBitSliceBitmapTest {
     public void testEQ() {
         // test predicate in the value bound
         for (int i = 0; i < 10; i++) {
-            String predicate = BASE + generateNextValue();
+            Integer predicate = generateNextValue();
             assertThat(range.eq(predicate))
                     .isEqualTo(
                             pairs.stream()
@@ -123,7 +122,7 @@ public class RangeEncodeBitSliceBitmapTest {
     public void testLT() {
         // test predicate in the value bound
         for (int i = 0; i < 10; i++) {
-            String predicate = BASE + generateNextValue();
+            Integer predicate = generateNextValue();
             assertThat(range.lt(predicate))
                     .isEqualTo(
                             pairs.stream()
@@ -173,7 +172,7 @@ public class RangeEncodeBitSliceBitmapTest {
     public void testLTE() {
         // test predicate in the value bound
         for (int i = 0; i < 10; i++) {
-            String predicate = BASE + generateNextValue();
+            Integer predicate = generateNextValue();
             assertThat(range.lte(predicate).getCardinality())
                     .isEqualTo(
                             pairs.stream()
@@ -224,7 +223,7 @@ public class RangeEncodeBitSliceBitmapTest {
     public void testGT() {
         // test predicate in the value bound
         for (int i = 0; i < 10; i++) {
-            String predicate = BASE + generateNextValue();
+            Integer predicate = generateNextValue();
             assertThat(range.gt(predicate))
                     .isEqualTo(
                             pairs.stream()
@@ -274,7 +273,7 @@ public class RangeEncodeBitSliceBitmapTest {
     public void testGTE() {
         // test predicate in the value bound
         for (int i = 0; i < 10; i++) {
-            String predicate = BASE + generateNextValue();
+            Integer predicate = generateNextValue();
             assertThat(range.gte(predicate))
                     .isEqualTo(
                             pairs.stream()
@@ -342,7 +341,7 @@ public class RangeEncodeBitSliceBitmapTest {
                             .filter(x -> x.value != null)
                             .min(Comparator.comparing(x -> x.value, comparator));
             assertThat(opt).isPresent();
-            String min = opt.get().value;
+            Integer min = opt.get().value;
             assertThat(min).isNotNull();
             assertThat(range.min()).isEqualTo(min);
         }
@@ -374,7 +373,7 @@ public class RangeEncodeBitSliceBitmapTest {
                             .filter(x -> x.value != null)
                             .max(Comparator.comparing(x -> x.value, comparator));
             assertThat(opt).isPresent();
-            String max = opt.get().value;
+            Integer max = opt.get().value;
             assertThat(max).isNotNull();
             assertThat(range.max()).isEqualTo(max);
         }
@@ -425,7 +424,7 @@ public class RangeEncodeBitSliceBitmapTest {
         // test without found set
         for (int i = 0; i < 10; i++) {
             int k = random.nextInt(10);
-            Set<String> topK =
+            Set<Integer> topK =
                     pairs.stream()
                             .filter(x -> x.value != null)
                             .sorted((x, y) -> -comparator.compare(x.value, y.value))
@@ -465,7 +464,7 @@ public class RangeEncodeBitSliceBitmapTest {
         // test without found set
         for (int i = 0; i < 10; i++) {
             int k = random.nextInt(10000);
-            Set<String> bottomK =
+            Set<Integer> bottomK =
                     pairs.stream()
                             .filter(x -> x.value != null)
                             .sorted((x, y) -> comparator.compare(x.value, y.value))
@@ -507,9 +506,9 @@ public class RangeEncodeBitSliceBitmapTest {
 
     private static class Pair {
         int index;
-        String value;
+        Integer value;
 
-        public Pair(int index, String value) {
+        public Pair(int index, Integer value) {
             this.index = index;
             this.value = value;
         }

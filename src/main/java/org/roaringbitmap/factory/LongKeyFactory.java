@@ -39,13 +39,8 @@ public class LongKeyFactory implements KeyFactory<Long> {
             }
 
             @Override
-            public int serializedSizeInBytes(Long key) {
+            public int serializedSizeInBytes(Long aLong) {
                 return Long.BYTES;
-            }
-
-            @Override
-            public boolean fixedSize() {
-                return true;
             }
         };
     }
@@ -58,5 +53,10 @@ public class LongKeyFactory implements KeyFactory<Long> {
     @Override
     public Comparator<Long> createCompactor() {
         return Comparator.comparing(o -> o);
+    }
+
+    @Override
+    public int fixedSerializedSizeInBytes() {
+        return Long.BYTES;
     }
 }

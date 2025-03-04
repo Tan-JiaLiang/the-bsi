@@ -42,11 +42,6 @@ public class IntegerKeyFactory implements KeyFactory<Integer> {
             public int serializedSizeInBytes(Integer key) {
                 return Integer.BYTES;
             }
-
-            @Override
-            public boolean fixedSize() {
-                return true;
-            }
         };
     }
 
@@ -58,5 +53,10 @@ public class IntegerKeyFactory implements KeyFactory<Integer> {
     @Override
     public Comparator<Integer> createCompactor() {
         return Comparator.comparing(o -> o);
+    }
+
+    @Override
+    public int fixedSerializedSizeInBytes() {
+        return Integer.BYTES;
     }
 }

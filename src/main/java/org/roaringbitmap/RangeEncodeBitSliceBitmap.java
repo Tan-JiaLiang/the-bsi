@@ -54,8 +54,10 @@ public class RangeEncodeBitSliceBitmap<KEY> {
     private final SeekableInputStream inputStream;
     private final Comparator<KEY> comparator;
     private final KeyFactory.KeyDeserializer<KEY> deserializer;
+    private final int fixedSerializedSizeInBytes;
 
     private RoaringBitmap nullBitmap;
+    private ByteBuffer blockByteBuffer;
     private List<DictionaryBlock<KEY>> blocks;
     private BitSliceIndexBitmap bsi;
 
@@ -74,7 +76,8 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             int bsiSerializedInBytes,
             SeekableInputStream inputStream,
             KeyFactory.KeyDeserializer<KEY> deserializer,
-            Comparator<KEY> comparator) {
+            Comparator<KEY> comparator,
+            int fixedSerializedSizeInBytes) {
         this.version = version;
         this.rid = rid;
         this.cardinality = cardinality;
@@ -90,6 +93,7 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         this.inputStream = inputStream;
         this.deserializer = deserializer;
         this.comparator = comparator;
+        this.fixedSerializedSizeInBytes = fixedSerializedSizeInBytes;
     }
 
     public RoaringBitmap eq(KEY key) {
@@ -101,12 +105,14 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             return new RoaringBitmap();
         }
 
-        Optional<Integer> code = findCode(key);
-        if (!code.isPresent()) {
+        int code =
+                findCode(key)
+                        .orElseThrow(() -> new IllegalArgumentException("code should not be null"));
+        if (code < 0) {
             return new RoaringBitmap();
         }
 
-        return getBitSliceIndexBitmap().eq(code.get());
+        return getBitSliceIndexBitmap().eq(code);
     }
 
     public RoaringBitmap lte(KEY key) {
@@ -118,12 +124,10 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             return new RoaringBitmap();
         }
 
-        Optional<Integer> code = findCode(key);
-        if (!code.isPresent()) {
-            return new RoaringBitmap();
-        }
-
-        return getBitSliceIndexBitmap().lte(code.get());
+        int code =
+                findCode(key)
+                        .orElseThrow(() -> new IllegalArgumentException("code should not be null"));
+        return code < 0 ? getBitSliceIndexBitmap().lte(-code) : getBitSliceIndexBitmap().lte(code);
     }
 
     public RoaringBitmap lt(KEY key) {
@@ -135,12 +139,10 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             return new RoaringBitmap();
         }
 
-        Optional<Integer> code = findCode(key);
-        if (!code.isPresent()) {
-            return new RoaringBitmap();
-        }
-
-        return getBitSliceIndexBitmap().lt(code.get());
+        int code =
+                findCode(key)
+                        .orElseThrow(() -> new IllegalArgumentException("code should not be null"));
+        return code < 0 ? getBitSliceIndexBitmap().lte(-code) : getBitSliceIndexBitmap().lt(code);
     }
 
     public RoaringBitmap gte(KEY key) {
@@ -152,12 +154,10 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             return new RoaringBitmap();
         }
 
-        Optional<Integer> code = findCode(key);
-        if (!code.isPresent()) {
-            return new RoaringBitmap();
-        }
-
-        return getBitSliceIndexBitmap().gte(code.get());
+        int code =
+                findCode(key)
+                        .orElseThrow(() -> new IllegalArgumentException("code should not be null"));
+        return code < 0 ? getBitSliceIndexBitmap().gt(-code) : getBitSliceIndexBitmap().gte(code);
     }
 
     public RoaringBitmap gt(KEY key) {
@@ -169,12 +169,10 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             return new RoaringBitmap();
         }
 
-        Optional<Integer> code = findCode(key);
-        if (!code.isPresent()) {
-            return new RoaringBitmap();
-        }
-
-        return getBitSliceIndexBitmap().gt(code.get());
+        int code =
+                findCode(key)
+                        .orElseThrow(() -> new IllegalArgumentException("code should not be null"));
+        return code < 0 ? getBitSliceIndexBitmap().gt(-code) : getBitSliceIndexBitmap().gt(code);
     }
 
     public RoaringBitmap isNull() {
@@ -186,8 +184,6 @@ public class RangeEncodeBitSliceBitmap<KEY> {
     }
 
     public RoaringBitmap topK(int k) {
-        List<DictionaryBlock<KEY>> blocks = getBlocks();
-        blocks.get(0).findCode((KEY) "");
         return getBitSliceIndexBitmap().topK(k);
     }
 
@@ -220,10 +216,6 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         return count() - getNullBitmap().getCardinality();
     }
 
-    public long countDistinct() {
-        return cardinality;
-    }
-
     public KEY min() {
         return min;
     }
@@ -232,36 +224,94 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         return max;
     }
 
-    private Optional<Integer> findCode(KEY key) {
-        List<DictionaryBlock<KEY>> blocks = getBlocks();
-        int index =
-                Collections.binarySearch(
-                        blocks, null, (block, ignore) -> comparator.compare(block.key, key));
-        if (index < 0) {
-            index = -2 - index;
+    public Optional<Integer> findCode(KEY key) {
+        if (fixedSerializedSizeInBytes > 0) {
+            // zero copy binary search
+            ByteBuffer buf = getBlocksBuffer();
+            DictionaryBlock<KEY> block = null;
+            int size = DictionaryBlock.serializeSizeInBytes(fixedSerializedSizeInBytes);
+
+            int low = 0;
+            int high = blockSize - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                buf.position(mid * size);
+                // the DictionaryBlock first field is the key
+                KEY found = deserializer.deserialize(buf);
+                int compareResult = comparator.compare(found, key);
+                if (compareResult > 0) {
+                    high = mid - 1;
+                } else if (compareResult < 0) {
+                    low = mid + 1;
+                } else {
+                    buf.position(mid * size);
+                    block =
+                            new DictionaryBlock<>(
+                                    (ByteBuffer) buf.slice().limit(size),
+                                    entryOffset,
+                                    deserializer,
+                                    comparator,
+                                    fixedSerializedSizeInBytes,
+                                    inputStream);
+                    break;
+                }
+            }
+            if (block == null) {
+                buf.position((low - 1) * size);
+                block =
+                        new DictionaryBlock<>(
+                                (ByteBuffer) buf.slice().limit(size),
+                                entryOffset,
+                                deserializer,
+                                comparator,
+                                fixedSerializedSizeInBytes,
+                                inputStream);
+            }
+
+            return block.findCode(key);
+        } else {
+            List<DictionaryBlock<KEY>> blocks = getBlocks();
+            int index =
+                    Collections.binarySearch(
+                            blocks, null, (block, ignore) -> comparator.compare(block.key, key));
+            if (index < 0) {
+                index = -2 - index;
+            }
+            return blocks.get(index).findCode(key);
         }
-        return blocks.get(index).findCode(key);
     }
 
     private List<DictionaryBlock<KEY>> getBlocks() {
         // deserialize the blocks
         if (blocks == null) {
+            ByteBuffer buffer = getBlocksBuffer();
+            blocks = new ArrayList<>(blockSize);
+            for (int i = 0; i < blockSize; i++) {
+                blocks.add(
+                        new DictionaryBlock<>(
+                                buffer,
+                                entryOffset,
+                                deserializer,
+                                comparator,
+                                fixedSerializedSizeInBytes,
+                                inputStream));
+            }
+        }
+        return blocks;
+    }
+
+    private ByteBuffer getBlocksBuffer() {
+        if (blockByteBuffer == null) {
             try {
                 inputStream.seek(blockOffset);
                 byte[] bytes = new byte[blockSerializedSizeInBytes];
                 inputStream.read(bytes);
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                blocks = new ArrayList<>(blockSize);
-                for (int i = 0; i < blockSize; i++) {
-                    blocks.add(
-                            new DictionaryBlock<>(
-                                    buffer, entryOffset, deserializer, comparator, inputStream));
-                }
+                blockByteBuffer = ByteBuffer.wrap(bytes);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
-        return blocks;
+        return blockByteBuffer;
     }
 
     private RoaringBitmap getNullBitmap() {
@@ -282,10 +332,11 @@ public class RangeEncodeBitSliceBitmap<KEY> {
     private BitSliceIndexBitmap getBitSliceIndexBitmap() {
         if (bsi == null) {
             try {
-                inputStream.seek(bitmapOffset + nullBitmapSerializedSizeInBytes);
-                byte[] bytes = new byte[bsiSerializedInBytes];
-                inputStream.read(bytes);
-                bsi = new BitSliceIndexBitmap(ByteBuffer.wrap(bytes));
+                bsi =
+                        BitSliceIndexBitmap.map(
+                                inputStream,
+                                bitmapOffset + nullBitmapSerializedSizeInBytes,
+                                bsiSerializedInBytes);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -342,7 +393,8 @@ public class RangeEncodeBitSliceBitmap<KEY> {
                 bsiSerializedInBytes,
                 inputStream,
                 deserializer,
-                factory.createCompactor());
+                factory.createCompactor(),
+                factory.fixedSerializedSizeInBytes());
     }
 
     public static class Appender<KEY> {
@@ -352,12 +404,14 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         private final TreeMap<KEY, RoaringBitmap> bitmaps;
         private final int blockSizeLimit;
         private final KeyFactory.KeySerializer<KEY> serializer;
+        private final int fixedSerializedSizeInBytes;
 
         public Appender(KeyFactory<KEY> factory, int blockSizeLimit) {
             this.rid = 0;
             this.nullBitmaps = new RoaringBitmap();
             this.bitmaps = new TreeMap<>(factory.createCompactor());
             this.serializer = factory.createSerializer();
+            this.fixedSerializedSizeInBytes = factory.fixedSerializedSizeInBytes();
             this.blockSizeLimit = blockSizeLimit;
         }
 
@@ -381,10 +435,30 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             int blockSize = 0;
             DictionaryBlock<KEY> currentBlock = null;
 
-            // todo: 当序列化为固定大小时，可以直接申请足够的bytes，避免grow带来的消耗
-            ByteArrayOutputStream blockOutputStream = new ByteArrayOutputStream();
+            KEY min = bitmaps.firstKey();
+            KEY max = bitmaps.lastKey();
+
+            Optional<Integer> estimatedBlockSerializedBytesInSize =
+                    DictionaryBlock.estimatedBlockSerializedBytesInSize(
+                            min,
+                            serializer,
+                            bitmaps.size(),
+                            fixedSerializedSizeInBytes,
+                            blockSizeLimit);
+            Optional<Integer> estimatedEntrySerializedBytesInSize =
+                    DictionaryBlock.estimatedEntrySerializedBytesInSize(
+                            min,
+                            serializer,
+                            bitmaps.size(),
+                            fixedSerializedSizeInBytes,
+                            blockSizeLimit);
+            ByteArrayOutputStream blockOutputStream =
+                    new ByteArrayOutputStream(
+                            estimatedBlockSerializedBytesInSize.orElse(16 * 1024));
+            ByteArrayOutputStream entryOutputStream =
+                    new ByteArrayOutputStream(
+                            estimatedEntrySerializedBytesInSize.orElse(16 * 1024));
             DataOutputStream blockDataOutputStream = new DataOutputStream(blockOutputStream);
-            ByteArrayOutputStream entryOutputStream = new ByteArrayOutputStream();
             DataOutputStream entryDataOutputStream = new DataOutputStream(entryOutputStream);
             for (Map.Entry<KEY, RoaringBitmap> entry : bitmaps.entrySet()) {
                 KEY key = entry.getKey();
@@ -418,9 +492,6 @@ public class RangeEncodeBitSliceBitmap<KEY> {
                 currentBlock.serializeBlock(blockDataOutputStream);
                 currentBlock.serializeEntry(entryDataOutputStream);
             }
-
-            KEY min = bitmaps.firstKey();
-            KEY max = bitmaps.lastKey();
 
             int headerSerializeSizeInBytes = 0;
             headerSerializeSizeInBytes += Byte.BYTES; // version
@@ -489,7 +560,7 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         }
     }
 
-    private static class DictionaryBlock<KEY> {
+    protected static class DictionaryBlock<KEY> {
 
         private final KEY key;
         private final int code;
@@ -503,6 +574,8 @@ public class RangeEncodeBitSliceBitmap<KEY> {
         private int entrySerializedSizeInBytes;
         private SeekableInputStream inputStream;
         private Comparator<KEY> comparator;
+        private int fixedSerializedSizeInBytes;
+        private ByteBuffer entryByteBuffer;
 
         public DictionaryBlock(
                 KEY key,
@@ -524,6 +597,7 @@ public class RangeEncodeBitSliceBitmap<KEY> {
                 int entryOffset,
                 KeyFactory.KeyDeserializer<KEY> deserializer,
                 Comparator<KEY> comparator,
+                int fixedSerializedSizeInBytes,
                 SeekableInputStream inputStream) {
             this.deserializer = deserializer;
             this.key = deserializer.deserialize(buffer);
@@ -532,6 +606,7 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             this.offset = entryOffset + buffer.getInt();
             this.entrySize = buffer.getInt();
             this.entrySerializedSizeInBytes = buffer.getInt();
+            this.fixedSerializedSizeInBytes = fixedSerializedSizeInBytes;
             this.inputStream = inputStream;
         }
 
@@ -545,22 +620,43 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             return true;
         }
 
-        public Optional<Integer> findCode(KEY key) {
-            if (comparator.compare(this.key, key) == 0) {
-                return Optional.of(code);
-            }
-            int index = Collections.binarySearch(getEntries(), key, comparator);
-            if (index < 0) {
-                return Optional.empty();
-            }
-            return Optional.of(code + index + 1);
-        }
-
         public Optional<KEY> findKey(int code) {
             if (this.code == code) {
                 return Optional.of(key);
             }
             return Optional.of(getEntries().get(code - this.code - 1));
+        }
+
+        public Optional<Integer> findCode(KEY key) {
+            if (comparator.compare(this.key, key) == 0) {
+                return Optional.of(code);
+            }
+
+            // we need to return the negative code that tell the caller the code was not found
+            if (fixedSerializedSizeInBytes > 0) {
+                ByteBuffer buf = getEntryByteBuffer();
+                int low = 0;
+                int high = entrySize - 1;
+                while (low <= high) {
+                    int mid = (low + high) >>> 1;
+                    buf.position(mid * fixedSerializedSizeInBytes);
+                    KEY found = deserializer.deserialize(buf);
+                    int compareResult = comparator.compare(found, key);
+                    if (compareResult > 0) {
+                        high = mid - 1;
+                    } else if (compareResult < 0) {
+                        low = mid + 1;
+                    } else {
+                        return Optional.of(code + mid + 1);
+                    }
+                }
+                return Optional.of(-(code + low));
+            } else {
+                int index = Collections.binarySearch(getEntries(), key, comparator);
+                return index < 0
+                        ? Optional.of(-(code + (-2 - index) + 1))
+                        : Optional.of(code + index + 1);
+            }
         }
 
         public void serializeBlock(DataOutputStream outputStream) {
@@ -591,26 +687,77 @@ public class RangeEncodeBitSliceBitmap<KEY> {
             }
         }
 
+        private ByteBuffer getEntryByteBuffer() {
+            if (entryByteBuffer == null) {
+                try {
+                    inputStream.seek(offset);
+                    byte[] bytes = new byte[entrySerializedSizeInBytes];
+                    inputStream.read(bytes);
+                    entryByteBuffer = ByteBuffer.wrap(bytes);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return entryByteBuffer;
+        }
+
         private List<KEY> getEntries() {
             // deserialize the entries
             if (entries == null) {
                 if (deserializer == null) {
                     throw new IllegalArgumentException("deserializer can not be null");
                 }
-                try {
-                    inputStream.seek(offset);
-                    byte[] bytes = new byte[entrySerializedSizeInBytes];
-                    inputStream.read(bytes);
-                    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                    entries = new ArrayList<>(entrySize);
-                    for (int i = 0; i < entrySize; i++) {
-                        entries.add(deserializer.deserialize(buffer));
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                ByteBuffer buffer = getEntryByteBuffer();
+                entries = new ArrayList<>(entrySize);
+                for (int i = 0; i < entrySize; i++) {
+                    entries.add(deserializer.deserialize(buffer));
                 }
             }
             return entries;
+        }
+
+        public static int estimatedBlocks(int total, int blockSizeLimit) {
+            return Math.floorDiv(total, blockSizeLimit) + 1;
+        }
+
+        public static <KEY> Optional<Integer> estimatedBlockSerializedBytesInSize(
+                KEY key,
+                KeyFactory.KeySerializer<KEY> serializer,
+                int size,
+                int fixedSerializedSizeInBytes,
+                int blockSizeLimit) {
+            if (fixedSerializedSizeInBytes <= 0) {
+                return Optional.empty();
+            }
+
+            int keySerializedInBytes = serializer.serializedSizeInBytes(key);
+            int blocks = estimatedBlocks(keySerializedInBytes * size, blockSizeLimit);
+            return Optional.of(blocks * serializeSizeInBytes(keySerializedInBytes));
+        }
+
+        public static int serializeSizeInBytes(int keySerializedSizeInBytes) {
+            int blockSerializedInBytes = 0;
+            blockSerializedInBytes += keySerializedSizeInBytes;
+            blockSerializedInBytes += Integer.BYTES;
+            blockSerializedInBytes += Integer.BYTES;
+            blockSerializedInBytes += Integer.BYTES;
+            blockSerializedInBytes += Integer.BYTES;
+            return blockSerializedInBytes;
+        }
+
+        public static <KEY> Optional<Integer> estimatedEntrySerializedBytesInSize(
+                KEY key,
+                KeyFactory.KeySerializer<KEY> serializer,
+                int size,
+                int fixedSerializedSizeInBytes,
+                int blockSizeLimit) {
+            if (fixedSerializedSizeInBytes <= 0) {
+                return Optional.empty();
+            }
+
+            int keySerializedInBytes = serializer.serializedSizeInBytes(key);
+            int blocks = estimatedBlocks(keySerializedInBytes * size, blockSizeLimit);
+            return Optional.of(keySerializedInBytes * (size - blocks));
         }
     }
 }

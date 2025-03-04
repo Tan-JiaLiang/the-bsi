@@ -47,11 +47,6 @@ public class StringKeyFactory implements KeyFactory<String> {
             public int serializedSizeInBytes(String s) {
                 return Integer.BYTES + s.length();
             }
-
-            @Override
-            public boolean fixedSize() {
-                return false;
-            }
         };
     }
 
@@ -68,5 +63,10 @@ public class StringKeyFactory implements KeyFactory<String> {
     @Override
     public Comparator<String> createCompactor() {
         return Comparator.comparing(o -> o);
+    }
+
+    @Override
+    public int fixedSerializedSizeInBytes() {
+        return -1;
     }
 }

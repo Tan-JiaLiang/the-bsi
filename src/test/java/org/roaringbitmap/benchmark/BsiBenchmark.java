@@ -45,8 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class BsiBenchmark {
 
-    private static final int ROW_COUNT = 2000000;
-    private static final int MAX = 100000;
+    private static final int ROW_COUNT = 3000000;
+    private static final int MAX = 10000;
 
     private static final String BSI_PATH = "src/test/resources/data/bsi.txt";
     private static final String IMMUTABLE_BSI_PATH = "src/test/resources/data/immutable-bsi.txt";
@@ -62,7 +62,7 @@ public class BsiBenchmark {
         List<Integer> values = new ArrayList<>();
         Random random = new Random();
         for (int i = 0; i < ROW_COUNT; i++) {
-            int value = random.nextInt(100) + MAX;
+            int value = random.nextInt(MAX);
             min = Math.min(min, value);
             max = Math.max(max, value);
             values.add(value);
@@ -104,8 +104,7 @@ public class BsiBenchmark {
         Files.write(new File(ROARING_RE_BSI_PATH).toPath(), buffer.array());
 
         RangeEncodeBitSliceBitmap.Appender<Integer> rangeAppender =
-                new RangeEncodeBitSliceBitmap.Appender<>(
-                        new IntegerKeyFactory(), Integer.BYTES * 1024 * 8);
+                new RangeEncodeBitSliceBitmap.Appender<>(new IntegerKeyFactory(), 16 * 1024);
         for (Integer value : values) {
             rangeAppender.append(value);
         }
@@ -143,24 +142,20 @@ public class BsiBenchmark {
 
     @Test
     public void testEQQuery() {
-        int length = 100;
-        Random random = new Random();
-        int[] values = new int[length + 1];
-        for (int i = 0; i < values.length; i++) {
-            values[i] = random.nextInt(100) + MAX;
-        }
-        values[length] = MAX + 101;
+        int length = 10;
+        for (int i = 0; i < length; i++) {
+            Random random = new Random();
+            int value = i == length - 1 ? MAX + 1 : random.nextInt(MAX);
 
-        Benchmark benchmark =
-                new Benchmark("benchmark", length)
-                        .setNumWarmupIters(1)
-                        .setOutputPerIteration(false);
+            Benchmark benchmark =
+                    new Benchmark("benchmark", length)
+                            .setNumWarmupIters(3)
+                            .setOutputPerIteration(false);
 
-        benchmark.addCase(
-                "roaring-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "roaring-bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(ROARING_BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -173,14 +168,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "roaring-re-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "roaring-re-bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(ROARING_RE_BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -191,14 +184,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -210,14 +201,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "re-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "re-bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(RE_BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -229,34 +218,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "immutable-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
-                        File file = new File(IMMUTABLE_BSI_PATH);
-                        try (BufferedInputStream stream =
-                                new BufferedInputStream(Files.newInputStream(file.toPath()))) {
-                            byte[] bytes = new byte[(int) file.length()];
-                            stream.read(bytes);
-                            ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                            ImmutableBitSliceIndexBitmap bsi =
-                                    ImmutableBitSliceIndexBitmap.map(buffer);
-                            bsi.eq(value);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-
-        benchmark.addCase(
-                "range-bitmap",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "range-bitmap-" + value,
+                    10,
+                    () -> {
                         File file = new File(RANGE_BITMAP_PATH);
 
                         try (SeekableInputStream stream = new LocalSeekableInputStream(file)) {
@@ -267,32 +234,27 @@ public class BsiBenchmark {
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.run();
+            benchmark.run();
+        }
     }
 
     @Test
     public void testRangeQuery() {
-        int length = 30;
-        Random random = new Random();
-        int[] values = new int[length + 1];
-        for (int i = 0; i < values.length; i++) {
-            values[i] = random.nextInt(100) + MAX;
-        }
-        values[length] = MAX + 101;
+        int length = 10;
+        for (int i = 0; i < length; i++) {
+            Random random = new Random();
+            int value = i == length - 1 ? MAX + 1 : random.nextInt(MAX);
+            Benchmark benchmark =
+                    new Benchmark("benchmark", length)
+                            .setNumWarmupIters(1)
+                            .setOutputPerIteration(false);
 
-        Benchmark benchmark =
-                new Benchmark("benchmark", length)
-                        .setNumWarmupIters(1)
-                        .setOutputPerIteration(false);
-
-        benchmark.addCase(
-                "roaring-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "roaring-bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(ROARING_BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -305,14 +267,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "roaring-re-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "roaring-re-bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(ROARING_RE_BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -323,14 +283,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -342,14 +300,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "re-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "re-bsi-" + value,
+                    10,
+                    () -> {
                         File file = new File(RE_BSI_PATH);
                         try (BufferedInputStream stream =
                                 new BufferedInputStream(Files.newInputStream(file.toPath()))) {
@@ -361,34 +317,12 @@ public class BsiBenchmark {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.addCase(
-                "immutable-bsi",
-                10,
-                () -> {
-                    for (int value : values) {
-                        File file = new File(IMMUTABLE_BSI_PATH);
-                        try (BufferedInputStream stream =
-                                new BufferedInputStream(Files.newInputStream(file.toPath()))) {
-                            byte[] bytes = new byte[(int) file.length()];
-                            stream.read(bytes);
-                            ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                            ImmutableBitSliceIndexBitmap bsi =
-                                    ImmutableBitSliceIndexBitmap.map(buffer);
-                            bsi.gt(value);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-
-        benchmark.addCase(
-                "range-bitmap",
-                10,
-                () -> {
-                    for (int value : values) {
+            benchmark.addCase(
+                    "range-bitmap-" + value,
+                    10,
+                    () -> {
                         File file = new File(RANGE_BITMAP_PATH);
                         try (SeekableInputStream stream = new LocalSeekableInputStream(file)) {
                             RangeEncodeBitSliceBitmap<Integer> bitmap =
@@ -398,9 +332,9 @@ public class BsiBenchmark {
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         }
-                    }
-                });
+                    });
 
-        benchmark.run();
+            benchmark.run();
+        }
     }
 }

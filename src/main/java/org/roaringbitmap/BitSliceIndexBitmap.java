@@ -18,6 +18,8 @@
 
 package org.roaringbitmap;
 
+import org.roaringbitmap.fs.SeekableInputStream;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -37,6 +39,10 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
     private ByteBuffer body;
     private RoaringBitmap ebm;
     private RoaringBitmap[] slices;
+
+    private int baseOffset;
+    private int length;
+    private SeekableInputStream stream;
 
     public BitSliceIndexBitmap() {
         this(Long.MIN_VALUE, Long.MIN_VALUE);
@@ -65,6 +71,9 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
                             version));
         }
 
+        // header size
+        int headerSerializedSizeInBytes = buffer.getInt();
+
         // deserialize min & max
         min = buffer.getLong();
         max = buffer.getLong();
@@ -79,6 +88,24 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         // byte buffer
         body = buffer.slice();
         slices = new RoaringBitmap[offsets.length];
+    }
+
+    public BitSliceIndexBitmap(
+            byte version,
+            long min,
+            long max,
+            int[] offsets,
+            SeekableInputStream stream,
+            int baseOffset,
+            int length) {
+        this.version = version;
+        this.min = min;
+        this.max = max;
+        this.offsets = offsets;
+        this.slices = new RoaringBitmap[offsets.length];
+        this.stream = stream;
+        this.baseOffset = baseOffset;
+        this.length = length;
     }
 
     @Override
@@ -184,12 +211,12 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         }
 
         int header = 0;
-        header += Byte.BYTES;
-        header += Long.BYTES;
-        header += Long.BYTES;
-        header += Long.BYTES;
-        header += Byte.BYTES;
-        header += bitCount() * Integer.BYTES;
+        header += Byte.BYTES; // version
+        header += Integer.BYTES; // header length
+        header += Long.BYTES; // min
+        header += Long.BYTES; // max
+        header += Byte.BYTES; // offset size
+        header += bitCount() * Integer.BYTES; // offsets
 
         int body = 0;
         ebm.runOptimize();
@@ -210,6 +237,7 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         ByteBuffer buffer = ByteBuffer.allocate(sizeInBytes);
 
         buffer.put(CURRENT_VERSION);
+        buffer.putInt(header - Byte.BYTES - Integer.BYTES);
         buffer.putLong(min);
         buffer.putLong(max);
         buffer.put((byte) bitCount());
@@ -483,21 +511,26 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         throw new UnsupportedOperationException("not support yet.");
     }
 
-    protected RoaringBitmap[] getSlices() {
-        RoaringBitmap[] result = new RoaringBitmap[bitCount()];
-        for (int i = 0; i < bitCount(); i++) {
-            result[i] = getSlice(i);
-        }
-        return result;
-    }
-
     private RoaringBitmap getSlice(int index) {
         try {
             if (slices[index] == null) {
-                body.position(offsets[index]);
-                RoaringBitmap bitmap = new RoaringBitmap();
-                bitmap.deserialize(body);
-                slices[index] = bitmap;
+                if (stream == null) {
+                    body.position(offsets[index]);
+                    RoaringBitmap bitmap = new RoaringBitmap();
+                    bitmap.deserialize(body);
+                    slices[index] = bitmap;
+                } else {
+                    stream.seek(baseOffset + offsets[index]);
+                    int size =
+                            index == offsets.length - 1
+                                    ? length - offsets[index]
+                                    : offsets[index + 1] - offsets[index];
+                    byte[] bytes = new byte[size];
+                    stream.read(bytes);
+                    RoaringBitmap bitmap = new RoaringBitmap();
+                    bitmap.deserialize(ByteBuffer.wrap(bytes));
+                    slices[index] = bitmap;
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -508,10 +541,19 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
     private RoaringBitmap getExistenceBitmap() {
         try {
             if (ebm == null) {
-                body.position(0);
-                RoaringBitmap bitmap = new RoaringBitmap();
-                bitmap.deserialize(body);
-                ebm = bitmap;
+                if (stream == null) {
+                    body.position(0);
+                    RoaringBitmap bitmap = new RoaringBitmap();
+                    bitmap.deserialize(body);
+                    ebm = bitmap;
+                } else {
+                    stream.seek(baseOffset);
+                    byte[] bytes = new byte[offsets[0]];
+                    stream.read(bytes);
+                    RoaringBitmap bitmap = new RoaringBitmap();
+                    bitmap.deserialize(ByteBuffer.wrap(bytes));
+                    ebm = bitmap;
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -519,10 +561,44 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         return ebm;
     }
 
-    private long generateMask(long value) {
-        if (value < 0) {
-            return 0;
+    public static BitSliceIndexBitmap map(SeekableInputStream stream, int offset, int length)
+            throws IOException {
+        stream.seek(offset);
+
+        byte[] bytes = new byte[Byte.BYTES + Integer.BYTES];
+        stream.read(bytes);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        byte version = buffer.get();
+        if (version > CURRENT_VERSION) {
+            throw new RuntimeException(
+                    String.format(
+                            "read index file fail, " + "your plugin version is lower than %d",
+                            version));
         }
-        return -1L >>> Long.numberOfLeadingZeros(value | 1);
+        int headerSerializedSizeInBytes = buffer.getInt();
+
+        bytes = new byte[headerSerializedSizeInBytes];
+        stream.read(bytes);
+        buffer = ByteBuffer.wrap(bytes);
+
+        // deserialize min & max
+        long min = buffer.getLong();
+        long max = buffer.getLong();
+
+        // read offsets
+        byte size = buffer.get();
+        int[] offsets = new int[size];
+        for (int i = 0; i < offsets.length; i++) {
+            offsets[i] = buffer.getInt();
+        }
+
+        return new BitSliceIndexBitmap(
+                version,
+                min,
+                max,
+                offsets,
+                stream,
+                offset + headerSerializedSizeInBytes + Byte.BYTES + Integer.BYTES,
+                length);
     }
 }

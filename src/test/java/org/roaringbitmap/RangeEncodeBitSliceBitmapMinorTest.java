@@ -98,6 +98,15 @@ public class RangeEncodeBitSliceBitmapMinorTest {
 
         assertThat(range.count()).isEqualTo(9);
         assertThat(range.countNotNull()).isEqualTo(6);
-        assertThat(range.countDistinct()).isEqualTo(4);
+    }
+
+    @Test
+    public void testEstimatedBlocks() {
+        assertThat(RangeEncodeBitSliceBitmap.DictionaryBlock.estimatedBlocks(4 * 1024, 16 * 1024))
+                .isEqualTo(1);
+        assertThat(RangeEncodeBitSliceBitmap.DictionaryBlock.estimatedBlocks(16 * 1024, 16 * 1024))
+                .isEqualTo(2);
+        assertThat(RangeEncodeBitSliceBitmap.DictionaryBlock.estimatedBlocks(4 * 100000, 16 * 1024))
+                .isEqualTo(25);
     }
 }
