@@ -38,8 +38,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,14 +57,24 @@ public class BsiBenchmark {
     private static final String ROARING_RE_BSI_PATH = "src/test/resources/data/roaring-re-bsi.txt";
     private static final String RANGE_BITMAP_PATH = "src/test/resources/data/range-bitmap.txt";
 
+    private static final Set<Integer> UN_EXISTS = new HashSet<>();
+
     @BeforeAll
     public static void setup() throws IOException {
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;
         List<Integer> values = new ArrayList<>();
         Random random = new Random();
+
+        for (int i = 0; i < 10; i++) {
+            UN_EXISTS.add(random.nextInt(MAX));
+        }
+
         for (int i = 0; i < ROW_COUNT; i++) {
             int value = random.nextInt(MAX);
+            if (UN_EXISTS.contains(value)) {
+                continue;
+            }
             min = Math.min(min, value);
             max = Math.max(max, value);
             values.add(value);
@@ -149,6 +161,102 @@ public class BsiBenchmark {
 
             Benchmark benchmark =
                     new Benchmark("benchmark", length)
+                            .setNumWarmupIters(3)
+                            .setOutputPerIteration(false);
+
+            benchmark.addCase(
+                    "roaring-bsi-" + value,
+                    10,
+                    () -> {
+                        File file = new File(ROARING_BSI_PATH);
+                        try (BufferedInputStream stream =
+                                new BufferedInputStream(Files.newInputStream(file.toPath()))) {
+                            byte[] bytes = new byte[(int) file.length()];
+                            stream.read(bytes);
+                            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                            MutableBitSliceIndex bsi = new MutableBitSliceIndex();
+                            bsi.deserialize(buffer);
+                            bsi.rangeEQ(null, value);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            benchmark.addCase(
+                    "roaring-re-bsi-" + value,
+                    10,
+                    () -> {
+                        File file = new File(ROARING_RE_BSI_PATH);
+                        try (BufferedInputStream stream =
+                                new BufferedInputStream(Files.newInputStream(file.toPath()))) {
+                            byte[] bytes = new byte[(int) file.length()];
+                            stream.read(bytes);
+                            RangeBitmap range = RangeBitmap.map(ByteBuffer.wrap(bytes));
+                            range.eq(value, RoaringBitmap.bitmapOfRange(0, ROW_COUNT + 1));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            benchmark.addCase(
+                    "bsi-" + value,
+                    10,
+                    () -> {
+                        File file = new File(BSI_PATH);
+                        try (BufferedInputStream stream =
+                                new BufferedInputStream(Files.newInputStream(file.toPath()))) {
+                            byte[] bytes = new byte[(int) file.length()];
+                            stream.read(bytes);
+                            BitSliceIndexBitmap bsi =
+                                    new BitSliceIndexBitmap(ByteBuffer.wrap(bytes));
+                            bsi.eq(value);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            benchmark.addCase(
+                    "re-bsi-" + value,
+                    10,
+                    () -> {
+                        File file = new File(RE_BSI_PATH);
+                        try (BufferedInputStream stream =
+                                new BufferedInputStream(Files.newInputStream(file.toPath()))) {
+                            byte[] bytes = new byte[(int) file.length()];
+                            stream.read(bytes);
+                            RangeEncodeBitSliceIndexBitmap bsi =
+                                    new RangeEncodeBitSliceIndexBitmap(ByteBuffer.wrap(bytes));
+                            bsi.eq(value);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            benchmark.addCase(
+                    "range-bitmap-" + value,
+                    10,
+                    () -> {
+                        File file = new File(RANGE_BITMAP_PATH);
+
+                        try (SeekableInputStream stream = new LocalSeekableInputStream(file)) {
+                            RangeEncodeBitSliceBitmap<Integer> bitmap =
+                                    RangeEncodeBitSliceBitmap.map(
+                                            stream, 0, new IntegerKeyFactory());
+                            bitmap.eq(value);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            benchmark.run();
+        }
+    }
+
+    @Test
+    public void testEQQueryUnExists() {
+        for (Integer value : UN_EXISTS) {
+            Benchmark benchmark =
+                    new Benchmark("benchmark", UN_EXISTS.size())
                             .setNumWarmupIters(3)
                             .setOutputPerIteration(false);
 
