@@ -262,7 +262,7 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
             return new RoaringBitmap();
         }
 
-        RoaringBitmap state = isNotNull(foundSet);
+        RoaringBitmap state = isNotNull(foundSet).clone();
         if (state.isEmpty()) {
             return new RoaringBitmap();
         }
@@ -270,9 +270,9 @@ public class BitSliceIndexBitmap implements BitSliceIndex {
         for (int i = bitCount() - 1; i >= 0; i--) {
             long bit = (predicate >> i) & 1;
             if (bit == 1) {
-                state = RoaringBitmap.and(state, getSlice(i));
+                state.and(getSlice(i));
             } else {
-                state = RoaringBitmap.andNot(state, getSlice(i));
+                state.andNot(getSlice(i));
             }
         }
         return state;
